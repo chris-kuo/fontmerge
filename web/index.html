@@ -72,6 +72,7 @@
           <select id="format">
             <option value="ttf" selected>TTF</option>
             <option value="otf">OTF</option>
+            <option value="woff2">WOFF2</option>
           </select>
         </label>
         <p id="suggested" class="suggested" data-i18n="suggested" hidden></p>
@@ -133,9 +134,17 @@
     </section>
 
     <section id="error-panel" class="panel error" hidden>
+      <h2 id="error-title"></h2>
       <p id="error-message"></p>
       <p id="error-hint" class="hint" hidden><strong data-i18n="hint"></strong>: <span></span></p>
-      <pre id="error-detail" hidden></pre>
+      <details id="error-detail-box" hidden>
+        <summary data-i18n="technicalDetails"></summary>
+        <pre id="error-detail"></pre>
+      </details>
+      <p class="error-actions">
+        <button id="retry" type="button" data-i18n="retry" hidden></button>
+        <a id="report-bug" href="https://github.com/chris-kuo/fontmerge/issues/new" target="_blank" rel="noopener" data-i18n="reportBug" hidden></a>
+      </p>
     </section>
 
     <section id="result-panel" class="panel" hidden>
@@ -146,9 +155,37 @@
         <div><dt data-i18n="time"></dt><dd id="r-time"></dd></div>
         <div><dt data-i18n="memory"></dt><dd id="r-memory"></dd></div>
       </dl>
-      <p><a id="download" class="primary button" data-i18n="download" href="#"></a> <span id="r-file"></span></p>
+      <p class="downloads">
+        <a id="download" class="primary button" href="#"><span data-i18n="download"></span> <span id="download-format"></span></a>
+        <a id="download-report" class="button" href="#" data-i18n="downloadReport"></a>
+        <span id="r-file" class="muted"></span>
+      </p>
+
+      <h3 data-i18n="preview"></h3>
+      <div class="preview-controls">
+        <label class="size"><span data-i18n="previewSize"></span>
+          <input id="preview-size" type="range" min="12" max="120" value="40">
+          <output id="preview-size-value">40 px</output>
+        </label>
+        <button id="preview-reset" type="button" data-i18n="previewReset"></button>
+      </div>
+      <label class="preview-text-label"><span data-i18n="previewText"></span>
+        <textarea id="preview-text" rows="4" spellcheck="false"></textarea>
+      </label>
+      <p id="preview-missing" class="muted" hidden></p>
+      <div class="preview-pair">
+        <div>
+          <h4 data-i18n="horizontal"></h4>
+          <div id="preview-h" class="preview" lang="zh-Hant"></div>
+        </div>
+        <div>
+          <h4 data-i18n="vertical"></h4>
+          <div id="preview-v" class="preview vertical" lang="zh-Hant"></div>
+        </div>
+      </div>
+
       <h3 data-i18n="issues"></h3>
-      <ul id="issues" class="issues"></ul>
+      <div id="report" class="report"></div>
     </section>
 
     <p class="note" data-i18n="licenceNote"></p>

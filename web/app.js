@@ -1,5 +1,13 @@
 // Page logic: pick and inspect fonts, suggest settings, run the merge in the worker.
-import { applyLanguage, detectLanguage, issueText, saveLanguage, t, translateProgress } from "./i18n.js";
+import {
+  applyLanguage,
+  detectLanguage,
+  errorTitle,
+  issueText,
+  saveLanguage,
+  t,
+  translateProgress,
+} from "./i18n.js";
 
 const $ = (id) => document.getElementById(id);
 const ROLES = ["western", "cjk"];
@@ -21,10 +29,23 @@ const state = {
   merging: false,
   timer: null,
   downloadUrl: null,
+  reportUrl: null,
+  report: null, // last validation report, re-rendered on language change
+  coverage: null, // Set of codepoints in the merged font
+  previewFace: null,
+  previewEdited: false,
 };
 
-// Test hook: the browser tests read state from here.
-window.__fontmerge = { ready: false, lastResult: null, lastError: null, suggestion: null, info: state.info };
+// Test hook: the browser tests read state from here. simulate() feeds a worker message to
+// the page, so layout can be checked without the Python runtime.
+window.__fontmerge = {
+  ready: false,
+  lastResult: null,
+  lastError: null,
+  suggestion: null,
+  info: state.info,
+  simulate: (msg) => handle(msg),
+};
 
 let worker = createWorker();
 
@@ -417,7 +438,7 @@ function renderSummary(role) {
   const shown = issues.filter((i) => i.code !== "license-reserved-names");
   if (shown.length) {
     const list = el("ul", "summary-issues");
-    for (const issue of shown) list.append(el("li", issue.severity, issueText(state.lang, issue, role, p)));
+    for (const issue of shown) list.append(el("li", issue.severity, issueText(state.lang, issue, role)));
     box.append(list);
   }
 }
@@ -448,15 +469,32 @@ function resetPanels() {
 
 function showError(error) {
   $("error-panel").hidden = false;
+  $("error-panel").dataset.kind = error.kind;
+  $("error-title").textContent = errorTitle(state.lang, error.kind);
+  $("error-title").dataset.kind = error.kind;
   $("error-message").textContent = error.message;
+  const runtime = error.kind === "RuntimeLoadError" || error.kind === "WorkerError";
+  const hintText = error.hint || (runtime ? t(state.lang, "errRuntimeHint") : "");
   const hint = $("error-hint");
-  hint.hidden = !error.hint;
-  hint.querySelector("span").textContent = error.hint || "";
-  const detail = $("error-detail");
-  detail.hidden = !error.detail;
-  detail.textContent = error.detail || "";
+  hint.hidden = !hintText;
+  hint.querySelector("span").textContent = hintText;
+  $("error-detail-box").hidden = !error.detail;
+  $("error-detail").textContent = error.detail || "";
+  $("retry").hidden = !runtime;
+  const known = errorTitle("en", error.kind) !== errorTitle("en", "Internal");
+  $("report-bug").hidden = known && !error.detail;
   updateButtons();
 }
+
+$("retry").addEventListener("click", () => {
+  worker.terminate();
+  state.ready = false;
+  window.__fontmerge.ready = false;
+  $("error-panel").hidden = true;
+  setStatus("loading", "statusLoadingRuntime");
+  worker = createWorker();
+  updateButtons();
+});
 
 function showResult(msg) {
   const { meta, font } = msg;
@@ -478,10 +516,17 @@ function showResult(msg) {
   $("r-time").textContent = `${meta.seconds} s`;
   $("r-memory").textContent = msg.wasmHeapBytes ? `${Math.round(msg.wasmHeapBytes / 1048576)} MB` : "–";
 
-  const list = $("issues");
-  list.replaceChildren();
-  if (!report.issues.length) list.append(el("li", "", t(state.lang, "noIssues")));
-  for (const issue of report.issues) list.append(el("li", issue.severity, `[${issue.severity}] ${issue.message}`));
+  $("download-format").textContent = meta.format.toUpperCase();
+  if (state.reportUrl) URL.revokeObjectURL(state.reportUrl);
+  const reportJson = JSON.stringify({ ...report, font: meta.filename, fontmerge: meta.version }, null, 2);
+  state.reportUrl = URL.createObjectURL(new Blob([reportJson], { type: "application/json" }));
+  $("download-report").href = state.reportUrl;
+  $("download-report").download = meta.filename.replace(/\.[^.]+$/, "") + ".report.json";
+
+  state.report = report;
+  renderReport();
+  state.coverage = expandRanges(meta.codepoints || []);
+  loadPreviewFont(font, meta.filename);
 
   $("result-panel").hidden = false;
   setStatus("done", "statusDone", { seconds: meta.seconds });
@@ -496,6 +541,115 @@ function showResult(msg) {
   };
 }
 
+// --- report ------------------------------------------------------------------------
+
+function renderReport() {
+  const box = $("report");
+  box.replaceChildren();
+  const report = state.report;
+  if (!report) return;
+  if (!report.issues.length) {
+    box.append(el("p", "muted", t(state.lang, "noIssues")));
+    return;
+  }
+  const groups = [
+    ["error", "errorsN"],
+    ["warning", "warningsN"],
+    ["info", "notesN"],
+  ];
+  for (const [severity, key] of groups) {
+    const issues = report.issues.filter((i) => i.severity === severity);
+    if (!issues.length) continue;
+    const section = el("section", `report-group ${severity}`);
+    section.dataset.severity = severity;
+    section.append(el("h4", "", t(state.lang, key, { n: issues.length })));
+    const list = el("ul", "");
+    for (const issue of issues) {
+      const li = el("li", severity, issueText(state.lang, issue));
+      li.dataset.code = issue.code;
+      list.append(li);
+    }
+    section.append(list);
+    box.append(section);
+  }
+}
+
+// --- preview -------------------------------------------------------------------------
+
+function expandRanges(ranges) {
+  const set = new Set();
+  for (const [start, end] of ranges) for (let cp = start; cp <= end; cp++) set.add(cp);
+  return set;
+}
+
+async function loadPreviewFont(bytes, filename) {
+  const family = `fontmerge-preview-${state.mergeId}`;
+  const face = new FontFace(family, bytes);
+  try {
+    await face.load();
+  } catch (e) {
+    console.warn("preview font failed to load", e);
+    return;
+  }
+  if (state.previewFace) document.fonts.delete(state.previewFace);
+  document.fonts.add(face);
+  state.previewFace = face;
+  for (const id of ["preview-h", "preview-v"]) {
+    $(id).style.fontFamily = `"${family}", system-ui, sans-serif`;
+  }
+  window.__fontmerge.preview = { family, filename };
+  if (!state.previewEdited) $("preview-text").value = t(state.lang, "previewSample");
+  renderPreview();
+}
+
+const NO_GLYPH_NEEDED = /[\s\u200b-\u200f\ufe00-\ufe0f]/;
+
+function renderPreview() {
+  const text = $("preview-text").value;
+  const missing = new Set();
+  for (const id of ["preview-h", "preview-v"]) {
+    const box = $(id);
+    box.replaceChildren();
+    for (const ch of text) {
+      const cp = ch.codePointAt(0);
+      if (ch === "\n") {
+        box.append(document.createElement("br"));
+      } else if (state.coverage && !state.coverage.has(cp) && !NO_GLYPH_NEEDED.test(ch)) {
+        missing.add(ch);
+        const span = el("span", "missing", ch);
+        span.title = `U+${cp.toString(16).toUpperCase().padStart(4, "0")}`;
+        box.append(span);
+      } else {
+        box.append(document.createTextNode(ch));
+      }
+    }
+  }
+  const note = $("preview-missing");
+  note.hidden = missing.size === 0;
+  note.textContent = missing.size
+    ? t(state.lang, "previewMissing", { count: missing.size, chars: [...missing].join(" ") })
+    : "";
+  window.__fontmerge.previewMissing = [...missing];
+}
+
+function setPreviewSize() {
+  const size = Number($("preview-size").value);
+  for (const id of ["preview-h", "preview-v"]) $(id).style.fontSize = `${size}px`;
+  $("preview-size-value").textContent = `${size} px`;
+}
+
+$("preview-text").addEventListener("input", () => {
+  state.previewEdited = true;
+  renderPreview();
+});
+$("preview-size").addEventListener("input", setPreviewSize);
+$("preview-reset").addEventListener("click", () => {
+  state.previewEdited = false;
+  $("preview-text").value = t(state.lang, "previewSample");
+  renderPreview();
+});
+setPreviewSize();
+
 // --- language and footer -----------------------------------------------------------
 
 function renderLanguage() {
@@ -508,6 +662,13 @@ function renderLanguage() {
     renderSummary(role);
   }
   checkReservedNames();
+  renderReport();
+  if (state.previewFace) {
+    if (!state.previewEdited) $("preview-text").value = t(state.lang, "previewSample");
+    renderPreview();
+  }
+  const errorTitleEl = $("error-title");
+  if (errorTitleEl.dataset.kind) errorTitleEl.textContent = errorTitle(state.lang, errorTitleEl.dataset.kind);
   updateButtons();
   $("footer").textContent = t(state.lang, "footer", { version: state.build.version, commit: state.build.commit });
 }

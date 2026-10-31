@@ -96,6 +96,7 @@ def report_to_dict(report: ValidationReport) -> dict[str, Any]:
                 "message": i.message,
                 **({"codepoint": f"U+{i.codepoint:04X}"} if i.codepoint is not None else {}),
                 **({"glyph": i.glyph} if i.glyph else {}),
+                **({"params": i.params} if i.params else {}),
             }
             for i in report.issues
         ],

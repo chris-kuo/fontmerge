@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -371,6 +371,8 @@ class Issue:
     message: str
     codepoint: int | None = None
     glyph: str | None = None
+    params: dict[str, Any] = field(default_factory=dict)
+    """Numbers and examples behind ``message``, so a UI can word it in other languages."""
 
 
 @dataclass(frozen=True)

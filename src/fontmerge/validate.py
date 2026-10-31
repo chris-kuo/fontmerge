@@ -18,6 +18,7 @@ import re
 import unicodedata
 from collections.abc import Callable
 from io import BytesIO
+from typing import Any
 
 from fontTools.ttLib import TTFont
 
@@ -92,6 +93,17 @@ def _fmt(cps: list[int]) -> str:
     return shown + (f" and {len(cps) - _SAMPLE} more" if len(cps) > _SAMPLE else "")
 
 
+def _cps(cps: list[int] | set[int], **extra: Any) -> dict[str, Any]:
+    """Params for an issue about a set of characters: count and a few examples."""
+    ordered = sorted(cps)
+    return {
+        "count": len(ordered),
+        "examples": " ".join(chr(cp) for cp in ordered[:_SAMPLE]),
+        "more": max(0, len(ordered) - _SAMPLE),
+        **extra,
+    }
+
+
 def _check_structure(font: TTFont, order: list[str], issues: list[Issue]) -> None:
     if len(order) > MAX_GLYPHS:
         issues.append(
@@ -99,13 +111,16 @@ def _check_structure(font: TTFont, order: list[str], issues: list[Issue]) -> Non
                 Severity.ERROR,
                 "glyph-limit",
                 f"{len(order):,} glyphs; OpenType allows at most {MAX_GLYPHS:,}",
+                params={"count": len(order), "limit": MAX_GLYPHS},
             )
         )
     if not order or order[0] != ".notdef":
         issues.append(Issue(Severity.ERROR, "notdef", "the first glyph must be .notdef"))
     upm = font["head"].unitsPerEm
     if not 16 <= upm <= 16384:
-        issues.append(Issue(Severity.ERROR, "upm", f"units per em {upm} is out of range"))
+        issues.append(
+            Issue(Severity.ERROR, "upm", f"units per em {upm} is out of range", params={"upm": upm})
+        )
 
 
 def _check_coverage(
@@ -123,6 +138,7 @@ def _check_coverage(
                     f"{len(missing)} characters planned from the {source.value} font are "
                     f"missing: {_fmt(missing)}",
                     codepoint=min(missing),
+                    params=_cps(missing, source=source.value),
                 )
             )
     extra = set(cmap) - plan.western - plan.cjk
@@ -132,6 +148,7 @@ def _check_coverage(
                 Severity.WARNING,
                 "unplanned",
                 f"{len(extra)} characters are in the font but not in the plan: {_fmt(list(extra))}",
+                params=_cps(extra),
             )
         )
     return coverage
@@ -193,6 +210,7 @@ def _check_sources(
                     f"{len(wrong)} characters do not match their glyph in the "
                     f"{source.value} font: {_fmt(wrong)}",
                     codepoint=min(wrong),
+                    params=_cps(wrong, source=source.value),
                 )
             )
 
@@ -233,6 +251,7 @@ def _check_empty_glyphs(font: TTFont, cmap: dict[int, str], issues: list[Issue])
                 "empty-glyph",
                 f"{len(blank)} visible characters have blank glyphs: {_fmt(blank)}",
                 codepoint=min(blank),
+                params=_cps(blank),
             )
         )
 
@@ -270,6 +289,7 @@ def _check_metrics(
                 Severity.ERROR,
                 "line-metrics",
                 f"typo ascender/descender {os2.sTypoAscender}/{os2.sTypoDescender} look wrong",
+                params={"ascender": os2.sTypoAscender, "descender": os2.sTypoDescender},
             )
         )
     if (hhea.ascent, hhea.descent, hhea.lineGap) != (
@@ -296,6 +316,12 @@ def _check_metrics(
                     "clipping",
                     f"glyphs reach {hi}/{lo} but the Windows clipping metrics are "
                     f"{os2.usWinAscent}/{-os2.usWinDescent}; Windows will cut them off",
+                    params={
+                        "high": hi,
+                        "low": lo,
+                        "win_ascent": os2.usWinAscent,
+                        "win_descent": os2.usWinDescent,
+                    },
                 )
             )
 
@@ -311,6 +337,7 @@ def _check_metrics(
                 "tall-glyphs",
                 f"{len(tall)} Western characters reach above the ascender "
                 f"({os2.sTypoAscender}) and may touch the line above: {_fmt(tall)}",
+                params=_cps(tall, ascender=os2.sTypoAscender),
             )
         )
 
@@ -331,6 +358,7 @@ def _check_vertical(font: TTFont, order: list[str], issues: list[Issue]) -> None
                 "vertical",
                 f"{len(missing)} glyphs have no vertical metrics, e.g. {', '.join(missing[:5])}",
                 glyph=missing[0],
+                params={"count": len(missing)},
             )
         )
 

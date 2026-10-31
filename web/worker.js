@@ -74,23 +74,26 @@ async function init() {
     pyodide.runPython(PY_HELPERS);
 
     post({ type: "ready", version: pyodide.runPython("web.version()"), pyodide: PYODIDE_VERSION });
+    return true;
   } catch (e) {
+    // Report once and resolve to false: a rejected promise nobody awaits would surface
+    // as an uncaught error in the page.
     post({ type: "error", id: null, fatal: true, error: internal(e, "RuntimeLoadError") });
-    throw e;
+    return false;
   }
 }
 
 self.onmessage = async (event) => {
   const msg = event.data;
-  try {
-    await ready;
-  } catch {
-    return; // the load error has already been posted
-  }
+  if (!(await ready)) return; // the load error has already been posted
   try {
     if (msg.type === "inspect") inspect(msg);
     else if (msg.type === "suggest") suggest(msg);
-    else if (msg.type === "merge") merge(msg);
+    else if (msg.type === "merge") {
+      // WOFF2 needs brotli; load it only when asked for, so TTF users skip the download.
+      if (msg.settings && msg.settings.format === "woff2") await pyodide.loadPackage(["brotli"]);
+      merge(msg);
+    }
   } catch (e) {
     post({ type: "error", id: msg.id, role: msg.role, error: internal(e, "InternalError") });
   }

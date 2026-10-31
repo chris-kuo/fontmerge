@@ -172,3 +172,30 @@ def test_real_font_is_valid(real_merge: dict[str, Any]) -> None:
     assert report.coverage == {Source.WESTERN: 1147, Source.CJK: 12154}
     tall = next(i for i in report.issues if i.code == "tall-glyphs")
     assert tall.message.startswith("35 Western characters")
+
+
+# W3: structured params behind each message -----------------------------------------------
+
+
+def test_params_for_character_issues(small_merge: dict[str, Any]) -> None:
+    for table in small_merge["font"]["cmap"].tables:
+        table.cmap.pop(0x4E00, None)
+    issue = next(i for i in check(small_merge).issues if i.code == "unmapped")
+    assert issue.params == {"count": 1, "examples": "一", "more": 0, "source": "cjk"}
+
+
+def test_params_for_metric_issues(small_merge: dict[str, Any]) -> None:
+    small_merge["font"]["OS/2"].usWinAscent = 100
+    issue = next(i for i in check(small_merge).issues if i.code == "clipping")
+    assert issue.params["win_ascent"] == 100 and issue.params["high"] > 100
+
+
+@pytest.mark.realfont
+def test_real_tall_glyph_params(real_merge: dict[str, Any]) -> None:
+    report = validate(
+        real_merge["font"], real_merge["route"], (real_merge["western"], real_merge["cjk"])
+    )
+    tall = next(i for i in report.issues if i.code == "tall-glyphs")
+    assert tall.params["count"] == 35 and tall.params["ascender"] == 940
+    assert tall.params["examples"].startswith("Ǖ Ǘ Ǚ Ǜ")
+    assert tall.params["more"] == 27

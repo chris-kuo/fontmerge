@@ -117,6 +117,7 @@ def check_profile(profile: FontProfile, role: Source) -> list[Issue]:
                     "role-coverage",
                     f"{name} is the Western font but lacks {len(missing)} of the 52 basic "
                     "Latin letters",
+                    params={"font": name, "missing": len(missing)},
                 )
             )
     else:
@@ -128,6 +129,7 @@ def check_profile(profile: FontProfile, role: Source) -> list[Issue]:
                     Severity.WARNING,
                     "role-coverage",
                     f"{name} is the CJK font but has only {han} Han characters and {kana} kana",
+                    params={"font": name, "han": han, "kana": kana},
                 )
             )
 
@@ -139,6 +141,7 @@ def check_profile(profile: FontProfile, role: Source) -> list[Issue]:
                 "license-reserved-names",
                 f"{name}'s licence reserves the names {reserved}; the merged font's name "
                 "must not use them",
+                params={"font": name, "names": list(profile.license.reserved_font_names)},
             )
         )
     if not (profile.license.license or profile.license.license_url):
@@ -147,6 +150,7 @@ def check_profile(profile: FontProfile, role: Source) -> list[Issue]:
                 Severity.INFO,
                 "license-unknown",
                 f"{name} has no licence information; make sure you may modify it",
+                params={"font": name},
             )
         )
 

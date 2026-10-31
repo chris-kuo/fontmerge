@@ -330,6 +330,11 @@ def test_real_merge_benchmark(ready_page: Page, tmp_path: Path) -> None:
         },
     )
     assert_same_font(download(ready_page, tmp_path), TTFont(BytesIO(expected["font"])))
+    ready_page.wait_for_function("window.__fontmerge.preview", timeout=60_000)
+    assert ready_page.evaluate("window.__fontmerge.previewMissing") == []
+    ready_page.click("#lang")
+    tall = ready_page.text_content("li[data-code='tall-glyphs']") or ""
+    assert "35 個西文字元高於上緣（940）" in tall and "另有 27 個" in tall
 
     bench = {
         "merge_seconds_in_browser": result["seconds"],
@@ -354,3 +359,147 @@ def test_long_error_text_wraps_on_phones(open_page) -> None:  # type: ignore[no-
         " 'https://example.com/' + 'x'.repeat(200); }"
     )
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+# W3: results ------------------------------------------------------------------------------
+
+
+def _block_pyodide(page: Page) -> None:
+    page.route("**/pyodide.mjs", lambda route: route.abort())
+
+
+def test_runtime_failure_is_explained(browser, site_url: str) -> None:  # type: ignore[no-untyped-def]
+    context = browser.new_context(locale="zh-TW")
+    page = context.new_page()
+    _block_pyodide(page)
+    page.goto(site_url)
+    page.wait_for_selector("#error-panel:not([hidden])", timeout=60_000)
+    assert page.text_content("#error-title") == "無法載入 Python 執行環境"
+    assert "cdn.jsdelivr.net" in (page.text_content("#error-hint") or "")
+    assert page.is_visible("#retry")
+    page.click("#lang")
+    assert page.text_content("#error-title") == "The Python runtime could not be loaded"
+    context.close()
+
+
+@pytest.mark.runtime
+def test_retry_after_runtime_failure(browser, site_url: str) -> None:  # type: ignore[no-untyped-def]
+    context = browser.new_context(locale="en-US")
+    page = context.new_page()
+    _block_pyodide(page)
+    page.goto(site_url)
+    page.wait_for_selector("#retry:not([hidden])", timeout=60_000)
+    page.unroute("**/pyodide.mjs")
+    page.click("#retry")
+    assert page.is_hidden("#error-panel")
+    page.wait_for_function("window.__fontmerge.ready", timeout=RUNTIME_TIMEOUT_MS)
+    context.close()
+
+
+@pytest.mark.runtime
+def test_preview_uses_the_merged_font(ready_page: Page, latin_ttf: Path, cjk_otf: Path) -> None:
+    pick(ready_page, latin_ttf, cjk_otf)
+    merge(ready_page)
+    ready_page.wait_for_function("window.__fontmerge.preview", timeout=60_000)
+    family = ready_page.evaluate("window.__fontmerge.preview.family")
+    assert ready_page.evaluate(f"document.fonts.check('20px \"{family}\"')")
+    assert family in ready_page.eval_on_selector(
+        "#preview-h", "el => getComputedStyle(el).fontFamily"
+    )
+    assert ready_page.eval_on_selector("#preview-v", "el => getComputedStyle(el).writingMode") == (
+        "vertical-rl"
+    )
+    ready_page.fill("#preview-text", "AB 一 가")  # Hangul is left out by default
+    assert ready_page.text_content("#preview-h") == "AB 一 가"
+    assert ready_page.text_content("#preview-v") == "AB 一 가"
+    assert ready_page.evaluate("window.__fontmerge.previewMissing") == ["가"]
+    assert ready_page.locator("#preview-h .missing").count() == 1
+    assert ready_page.is_visible("#preview-missing")
+    ready_page.fill("#preview-size", "72")
+    assert ready_page.eval_on_selector("#preview-h", "el => el.style.fontSize") == "72px"
+    ready_page.click("#preview-reset")
+    assert "quick brown fox" in ready_page.input_value("#preview-text")
+
+
+@pytest.mark.runtime
+def test_report_is_grouped_and_translated(ready_page: Page, latin_ttf: Path, cjk_otf: Path) -> None:
+    pick(ready_page, latin_ttf, cjk_otf)
+    merge(ready_page)
+    warnings = ready_page.locator(".report-group[data-severity='warning']")
+    assert "Warnings (" in (warnings.locator("h4").text_content() or "")
+    assert warnings.locator("li[data-code='role-coverage']").count() == 1
+    notes = ready_page.locator(".report-group[data-severity='info']")
+    assert "browser version skips" in (
+        notes.locator("li[data-code='ots-skipped']").text_content() or ""
+    )
+    ready_page.click("#lang")
+    role = warnings.locator("li[data-code='role-coverage']").text_content() or ""
+    assert "只有 3 個漢字和 2 個假名" in role
+    assert "警告（" in (warnings.locator("h4").text_content() or "")
+
+
+@pytest.mark.runtime
+def test_report_download(ready_page: Page, latin_ttf: Path, cjk_otf: Path, tmp_path: Path) -> None:
+    pick(ready_page, latin_ttf, cjk_otf)
+    ready_page.fill("#family", "Report Test")
+    merge(ready_page)
+    with ready_page.expect_download() as info:
+        ready_page.click("#download-report")
+    assert info.value.suggested_filename == "ReportTest-Regular.report.json"
+    path = tmp_path / "r.json"
+    info.value.save_as(path)
+    data = json.loads(path.read_text())
+    assert data["font"] == "ReportTest-Regular.ttf"
+    assert any(i["code"] == "role-coverage" for i in data["issues"])
+
+
+@pytest.mark.runtime
+def test_woff2_output(ready_page: Page, latin_ttf: Path, cjk_otf: Path, tmp_path: Path) -> None:
+    pick(ready_page, latin_ttf, cjk_otf)
+    ready_page.select_option("#format", "woff2")
+    state = merge(ready_page)
+    assert state["lastError"] is None, state["lastError"]
+    assert state["lastResult"]["filename"].endswith(".woff2")
+    assert (ready_page.text_content("#download-format") or "").strip() == "WOFF2"
+    font = download(ready_page, tmp_path)
+    assert font.flavor == "woff2"
+    ready_page.wait_for_function("window.__fontmerge.preview", timeout=60_000)
+
+
+@pytest.mark.runtime
+def test_error_title_in_chinese(open_page, cjk_otf: Path, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+    page = open_page("zh-TW")
+    page.wait_for_function("window.__fontmerge.ready", timeout=RUNTIME_TIMEOUT_MS)
+    reserved = build_latin_ttf(
+        tmp_path / "Exemplar.ttf",
+        family="Exemplar",
+        extra_names={"copyright": 'Copyright 2026, with Reserved Font Name "Exemplar".'},
+    )
+    pick(page, reserved, cjk_otf)
+    wait_suggestion(page)
+    merge(page)
+    assert page.text_content("#error-title") == "設定有問題"
+    assert page.is_hidden("#retry")
+
+
+@pytest.mark.parametrize(("locale", "width"), [("en-US", 1000), ("zh-TW", 375)])
+def test_results_layout_fits(  # type: ignore[no-untyped-def]
+    browser, site_url: str, latin_ttf: Path, cjk_otf: Path, locale: str, width: int
+) -> None:
+    """Render a real result through the test hook (no runtime needed) and check layout."""
+    result = merge_bytes(latin_ttf.read_bytes(), cjk_otf.read_bytes(), {"naming": {"family": "L"}})
+    font = list(result.pop("font"))
+    context = browser.new_context(locale=locale, viewport={"width": width, "height": 900})
+    page = context.new_page()
+    _block_pyodide(page)
+    page.goto(site_url)
+    page.evaluate(
+        "([meta, bytes]) => window.__fontmerge.simulate("
+        "{type: 'result', id: 0, meta, font: new Uint8Array(bytes), wasmHeapBytes: null})",
+        [result, font],
+    )
+    page.wait_for_function("window.__fontmerge.preview", timeout=30_000)
+    page.fill("#preview-text", "AB 一 " + "長" * 400)  # long text in both previews
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    assert page.is_visible(".report-group[data-severity='warning']")
+    context.close()

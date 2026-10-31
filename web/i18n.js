@@ -83,6 +83,31 @@ export const STRINGS = {
     cancel: "Cancel",
     statusCancelled: "Cancelled. Reloading the runtime…",
     elapsed: "{s} s",
+    technicalDetails: "Technical details",
+    retry: "Try again",
+    reportBug: "Report a problem",
+    downloadReport: "Report (JSON)",
+    preview: "Preview",
+    previewSize: "Size",
+    previewReset: "Reset text",
+    previewText: "Sample text (edit freely)",
+    horizontal: "Horizontal",
+    vertical: "Vertical",
+    previewSample: "The quick brown fox jumps over the lazy dog. 0123456789\n我們在 Taipei 吃了 3 碗 Beef Noodles。\n東京で Typography を学ぶ「こんにちは」\n你好 nǐ hǎo，媽 mā 麻 má 馬 mǎ 罵 mà！",
+    previewMissing: "{count} characters in the sample are not in the merged font. They are underlined in red and drawn in a fallback font: {chars}",
+    errorsN: "Errors ({n})",
+    warningsN: "Warnings ({n})",
+    notesN: "Notes ({n})",
+    errConfigError: "There is a problem with the settings",
+    errFontLoadError: "A font could not be read",
+    errUnsupportedFontError: "This font is not supported",
+    errRoutingError: "Characters could not be assigned",
+    errGlyphLimitError: "Too many glyphs for one font",
+    errMergeFailedError: "The fonts could not be merged",
+    errValidationFailedError: "The merged font did not pass validation, so it was not saved",
+    errRuntimeLoadError: "The Python runtime could not be loaded",
+    errRuntimeHint: "The page downloads Pyodide from cdn.jsdelivr.net. Check your connection; some networks, firewalls or content blockers block it.",
+    errInternal: "Something unexpected went wrong",
   },
   "zh-Hant": {
     title: "fontmerge",
@@ -165,6 +190,31 @@ export const STRINGS = {
     cancel: "取消",
     statusCancelled: "已取消，正在重新載入執行環境…",
     elapsed: "{s} 秒",
+    technicalDetails: "技術細節",
+    retry: "重試",
+    reportBug: "回報問題",
+    downloadReport: "報告（JSON）",
+    preview: "預覽",
+    previewSize: "大小",
+    previewReset: "重設文字",
+    previewText: "範例文字（可自由修改）",
+    horizontal: "橫排",
+    vertical: "直排",
+    previewSample: "我們在 Taipei 吃了 3 碗 Beef Noodles。\n東京で Typography を学ぶ「こんにちは」\n你好 nǐ hǎo，媽 mā 麻 má 馬 mǎ 罵 mà！\nThe quick brown fox jumps over the lazy dog. 0123456789",
+    previewMissing: "範例中有 {count} 個字元不在合併後的字型裡，以紅色底線標示並用備用字型顯示：{chars}",
+    errorsN: "錯誤（{n}）",
+    warningsN: "警告（{n}）",
+    notesN: "備註（{n}）",
+    errConfigError: "設定有問題",
+    errFontLoadError: "無法讀取字型",
+    errUnsupportedFontError: "不支援這個字型",
+    errRoutingError: "無法分配字元",
+    errGlyphLimitError: "字符數超過單一字型的上限",
+    errMergeFailedError: "無法合併字型",
+    errValidationFailedError: "合併後的字型未通過驗證，因此沒有輸出",
+    errRuntimeLoadError: "無法載入 Python 執行環境",
+    errRuntimeHint: "本頁會從 cdn.jsdelivr.net 下載 Pyodide。請檢查網路連線；有些網路、防火牆或內容封鎖工具會擋住它。",
+    errInternal: "發生了預期外的錯誤",
   },
 };
 
@@ -233,21 +283,59 @@ export function translateProgress(lang, message) {
   return message;
 }
 
-// Chinese text for the Inspector's font checks; English uses the message from Python.
-const ISSUES_ZH = {
-  "role-coverage:western": "這個字型缺少大部分基本拉丁字母，不適合當西文字型。",
-  "role-coverage:cjk": "這個字型的漢字與假名很少，不太像中日文字型。",
-  "license-reserved-names": "授權保留了字型名稱 {names}，合併後的字型不能使用這些名稱。",
-  "license-unknown": "沒有授權資訊，請確認你有權修改這個字型。",
+// Report and font-check wording. English uses Python's message unless EN overrides it;
+// Chinese fills each template from the issue's params.
+const EN = {
+  "ots-skipped": "The browser version skips the OTS browser-compatibility check; the command-line tool runs it.",
+};
+
+const ZH = {
+  "role-coverage:western": "西文字型「{font}」缺少 {missing} 個基本拉丁字母，不適合當西文字型。",
+  "role-coverage:cjk": "中日文字型「{font}」只有 {han} 個漢字和 {kana} 個假名，不太像中日文字型。",
+  "license-reserved-names": "「{font}」的授權保留了字型名稱 {names}，合併後的字型不能使用這些名稱。",
+  "license-unknown": "「{font}」沒有授權資訊，請確認你有權修改這個字型。",
   "license-restricted": "嵌入權限受限；散布合併後的字型前，請確認授權允許修改。",
   "license-no-subsetting": "嵌入權限禁止擷取子集，因此無法合併。",
   "license-bitmap-only": "嵌入權限只允許點陣嵌入。",
+  "glyph-limit": "字符數 {count} 超過 OpenType 的上限 {limit}。",
+  notdef: "第一個字符必須是 .notdef。",
+  upm: "每 em 單位數 {upm} 超出允許範圍。",
+  unmapped: "{count} 個預定來自{source}的字元遺失了：{examples}{more}",
+  unplanned: "{count} 個字元不在分配計畫中：{examples}{more}",
+  "wrong-source": "{count} 個字元與{source}裡的字符不一致：{examples}{more}",
+  "empty-glyph": "{count} 個可見字元的字符是空白的：{examples}{more}",
+  "line-metrics": "行距度量看起來有誤（上緣 {ascender}、下緣 {descender}）。",
+  "line-metrics-differ": "hhea 與 OS/2 的行距度量不同，不同程式顯示的行距可能不一致。",
+  clipping: "有字符最高到 {high}、最低到 {low}，超出 Windows 的裁切範圍（{win_ascent}／−{win_descent}），在 Windows 上會被截掉。",
+  "tall-glyphs": "{count} 個西文字元高於上緣（{ascender}），可能碰到上一行：{examples}{more}",
+  vertical: "部分字符缺少直排度量。",
+  names: "字型名稱資料不完整或不符合規定。",
+  ots: "OTS 檢查未通過，瀏覽器可能拒絕使用這個字型。",
+  "ots-skipped": "瀏覽器版不執行 OTS 瀏覽器相容性檢查；命令列工具會執行。",
+  "not-routed": "因為關閉了缺字補字，有 {count} 個字元被略過。",
 };
 
-export function issueText(lang, issue, role, profile) {
-  if (lang !== "zh-Hant") return issue.message;
-  const template = ISSUES_ZH[`${issue.code}:${role}`] ?? ISSUES_ZH[issue.code];
-  if (!template) return issue.message;
-  const names = (profile.reserved_font_names || []).map((n) => `「${n}」`).join("、");
-  return template.replace("{names}", names);
+function fill(template, params, lang) {
+  return template.replace(/\{(\w+)\}/g, (_, key) => {
+    const value = params[key];
+    if (key === "more") return value ? (lang === "zh-Hant" ? ` 等，另有 ${value} 個` : ` and ${value} more`) : "";
+    if (key === "source") return value === "western" ? "西文字型" : "中日文字型";
+    if (key === "names") return (value || []).map((n) => `「${n}」`).join("、");
+    return value === undefined || value === null ? "" : String(value);
+  });
+}
+
+// role: "western" | "cjk" for font checks shown under a font; report issues carry it in params.
+export function issueText(lang, issue, role) {
+  const params = issue.params || {};
+  const r = role || params.role;
+  if (lang !== "zh-Hant") return EN[issue.code] || issue.message;
+  const template = ZH[`${issue.code}:${r}`] ?? ZH[issue.code];
+  return template ? fill(template, params, lang) : issue.message;
+}
+
+export function errorTitle(lang, kind) {
+  const key = `err${kind}`;
+  const known = STRINGS.en[key] !== undefined;
+  return t(lang, known ? key : "errInternal");
 }

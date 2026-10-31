@@ -172,12 +172,14 @@ def merge_bytes(
 
         result = run(cfg, progress)
         font_bytes = result.outputs[0].read_bytes()
+        codepoints = codepoint_ranges(result.outputs[0])
 
     return {
         "filename": filename,
         "format": fmt,
         "font": font_bytes,
         "report": report_to_dict(result.report),
+        "codepoints": codepoints,
         "seconds": round(time.monotonic() - start, 2),
         "version": __version__,
     }
@@ -196,9 +198,9 @@ def profile_to_dict(p: FontProfile, is_variable: bool = False) -> dict[str, Any]
     def count(lo: int, hi: int) -> int:
         return sum(1 for cp in cps if lo <= cp <= hi)
 
-    def role(source: Source) -> list[dict[str, str]]:
+    def role(source: Source) -> list[dict[str, Any]]:
         return [
-            {"severity": i.severity.value, "code": i.code, "message": i.message}
+            {"severity": i.severity.value, "code": i.code, "message": i.message, "params": i.params}
             for i in check_profile(p, source)
         ]
 
@@ -227,6 +229,20 @@ def profile_to_dict(p: FontProfile, is_variable: bool = False) -> dict[str, Any]
         "as_western": role(Source.WESTERN),
         "as_cjk": role(Source.CJK),
     }
+
+
+def codepoint_ranges(font_path: Path) -> list[list[int]]:
+    """The font's characters as inclusive [start, end] ranges (compact for JavaScript)."""
+    from fontTools.ttLib import TTFont
+
+    cps = sorted((TTFont(str(font_path), lazy=True).getBestCmap() or {}).keys())
+    ranges: list[list[int]] = []
+    for cp in cps:
+        if ranges and cp == ranges[-1][1] + 1:
+            ranges[-1][1] = cp
+        else:
+            ranges.append([cp, cp])
+    return ranges
 
 
 def output_filename(family: str, style: str, fmt: str) -> str:

@@ -59,6 +59,7 @@ def run(cfg: MergeConfig, progress: Progress | None = None) -> MergeResult:
                 "not-routed",
                 f"{len(route.missing)} characters were left out because fallback is off",
                 codepoint=min(route.missing),
+                params={"count": len(route.missing)},
             )
         )
 
@@ -110,7 +111,18 @@ def run(cfg: MergeConfig, progress: Progress | None = None) -> MergeResult:
 
 
 def _role_issues(issues: list[Issue], role: str) -> list[Issue]:
-    return [Issue(i.severity, i.code, f"{role}: {i.message}", i.codepoint, i.glyph) for i in issues]
+    key = "western" if role.startswith("Western") else "cjk"
+    return [
+        Issue(
+            i.severity,
+            i.code,
+            f"{role}: {i.message}",
+            i.codepoint,
+            i.glyph,
+            params={**i.params, "role": key},
+        )
+        for i in issues
+    ]
 
 
 def _sorted(issues: list[Issue]) -> tuple[Issue, ...]:

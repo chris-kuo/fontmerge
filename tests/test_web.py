@@ -273,3 +273,23 @@ def test_strict_setting(latin_ttf: Path, cjk_otf: Path) -> None:
     # The tiny CJK test font triggers a coverage warning, which strict mode refuses.
     with pytest.raises(ValidationFailedError, match="role-coverage"):
         merge_bytes(read(latin_ttf), read(cjk_otf), {"naming": {"family": "F"}, "strict": True})
+
+
+def test_report_carries_params(latin_ttf: Path, cjk_otf: Path) -> None:
+    result = merge_bytes(read(latin_ttf), read(cjk_otf), {"naming": {"family": "F"}})
+    role = next(i for i in result["report"]["issues"] if i["code"] == "role-coverage")
+    assert role["params"] == {"font": "Test CJK", "han": 3, "kana": 2, "role": "cjk"}
+
+
+def test_codepoint_ranges(latin_ttf: Path, cjk_otf: Path) -> None:
+    result = merge_bytes(read(latin_ttf), read(cjk_otf), {"naming": {"family": "F"}})
+    font = TTFont(BytesIO(result["font"]))
+    expanded = {cp for start, end in result["codepoints"] for cp in range(start, end + 1)}
+    assert expanded == set(font.getBestCmap())
+    assert [0x41, 0x5A] in result["codepoints"]  # A-Z as one range
+
+
+def test_profile_issues_carry_params(cjk_otf: Path) -> None:
+    issues = inspect_bytes(read(cjk_otf))["profile"]["as_cjk"]
+    role = next(i for i in issues if i["code"] == "role-coverage")
+    assert role["params"]["han"] == 3
