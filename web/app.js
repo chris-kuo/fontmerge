@@ -1,138 +1,440 @@
-// Page logic: read the two fonts, send them to the worker, show progress and the result.
-import { applyLanguage, detectLanguage, saveLanguage, t, translateProgress } from "./i18n.js";
+// Page logic: pick and inspect fonts, suggest settings, run the merge in the worker.
+import { applyLanguage, detectLanguage, issueText, saveLanguage, t, translateProgress } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id);
-let lang = detectLanguage();
-let runtimeReady = false;
-let mergeId = 0;
-let downloadUrl = null;
-let build = { version: "?", commit: "dev" };
+const ROLES = ["western", "cjk"];
+const TOTAL_STEPS = 11; // progress messages printed by pipeline.run
 
-// Test hook: the browser tests read results from here.
-window.__fontmerge = { ready: false, lastResult: null, lastError: null };
-
-const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
-worker.onmessage = (event) => handle(event.data);
-worker.onerror = (event) => {
-  setStatus("error", "statusRuntimeFailed");
-  showError({ kind: "WorkerError", message: event.message || "worker failed", hint: null });
+const state = {
+  lang: detectLanguage(),
+  ready: false,
+  build: { version: "?", commit: "dev" },
+  files: { western: null, cjk: null },
+  info: { western: null, cjk: null }, // inspect result: {faces, profile, selected_face}
+  inspectError: { western: null, cjk: null },
+  face: { western: null, cjk: null },
+  edited: { family: false, style: false, scale: false },
+  seq: 0, // id of the latest request, per kind
+  inspectId: { western: 0, cjk: 0 },
+  suggestId: 0,
+  mergeId: 0,
+  merging: false,
+  timer: null,
+  downloadUrl: null,
 };
+
+// Test hook: the browser tests read state from here.
+window.__fontmerge = { ready: false, lastResult: null, lastError: null, suggestion: null, info: state.info };
+
+let worker = createWorker();
+
+function createWorker() {
+  const w = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
+  w.onmessage = (event) => handle(event.data);
+  w.onerror = (event) => {
+    setStatus("error", "statusRuntimeFailed");
+    showError({ kind: "WorkerError", message: event.message || "worker failed", hint: null });
+  };
+  return w;
+}
+
+function nextId() {
+  state.seq += 1;
+  return state.seq;
+}
 
 function handle(msg) {
   switch (msg.type) {
     case "status":
-      setStatus("loading", msg.key);
+      if (!state.merging) setStatus("loading", msg.key);
       break;
     case "ready":
-      runtimeReady = true;
+      state.ready = true;
       window.__fontmerge.ready = true;
       setStatus("ready", "statusReady");
-      updateButton();
+      // Inspect anything picked while the runtime was loading (or after a cancel).
+      for (const role of ROLES) if (state.files[role] && !state.info[role]) inspect(role);
+      updateButtons();
+      break;
+    case "inspected":
+      if (msg.id === state.inspectId[msg.role]) onInspected(msg.role, msg.info);
+      break;
+    case "suggested":
+      if (msg.id === state.suggestId) onSuggested(msg.suggestion);
       break;
     case "progress":
-      if (msg.id === mergeId) addProgress(msg.message);
+      if (msg.id === state.mergeId) addProgress(msg.message);
       break;
     case "result":
-      if (msg.id === mergeId) showResult(msg);
+      if (msg.id === state.mergeId) showResult(msg);
       break;
     case "error":
       if (msg.fatal) {
         setStatus("error", "statusRuntimeFailed");
         showError(msg.error);
-      } else if (msg.id === mergeId) {
+      } else if (msg.role === "western" || msg.role === "cjk") {
+        if (msg.id === state.inspectId[msg.role]) {
+          state.inspectError[msg.role] = msg.error;
+          renderSummary(msg.role);
+          updateButtons();
+        }
+      } else if (msg.id === state.mergeId) {
+        endMerge();
         setStatus("error", "statusError");
         showError(msg.error);
         window.__fontmerge.lastError = msg.error;
-        updateButton();
       }
       break;
   }
 }
 
-// --- form ---------------------------------------------------------------------------
+// --- picking and inspecting fonts ---------------------------------------------------
 
-for (const id of ["western", "cjk"]) {
-  $(id).addEventListener("change", () => {
-    const file = $(id).files[0];
-    const label = $(`${id}-name`);
-    if (file) {
-      label.textContent = `${file.name} · ${(file.size / 1048576).toFixed(1)} MB`;
-      label.removeAttribute("data-i18n");
-    }
-    updateButton();
+for (const role of ROLES) {
+  $(role).addEventListener("change", () => {
+    if ($(role).files[0]) setFile(role, $(role).files[0]);
+  });
+  const drop = $(`${role}-drop`);
+  drop.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    drop.classList.add("over");
+  });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (e) => {
+    e.preventDefault();
+    drop.classList.remove("over");
+    const file = e.dataTransfer && e.dataTransfer.files[0];
+    if (file) setFile(role, file);
+  });
+  $(`${role}-face`).addEventListener("change", () => {
+    state.face[role] = Number($(`${role}-face`).value);
+    state.info[role] = { ...state.info[role], profile: null };
+    inspect(role);
   });
 }
 
+function setFile(role, file) {
+  state.files[role] = file;
+  state.info[role] = null;
+  state.inspectError[role] = null;
+  state.face[role] = null;
+  renderFileName(role);
+  renderSummary(role);
+  inspect(role);
+  updateButtons();
+}
+
+async function inspect(role) {
+  const file = state.files[role];
+  if (!file) return;
+  const id = nextId();
+  state.inspectId[role] = id;
+  renderSummary(role);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  worker.postMessage(
+    { type: "inspect", id, role, name: file.name, bytes, face: state.face[role] },
+    [bytes.buffer],
+  );
+}
+
+function onInspected(role, info) {
+  const previous = state.info[role];
+  state.info[role] = info;
+  window.__fontmerge.info = state.info;
+  const faces = info.faces || [];
+  const row = $(`${role}-face-row`);
+  row.hidden = faces.length < 2;
+  if (faces.length > 1) {
+    const select = $(`${role}-face`);
+    if (!previous || select.options.length !== faces.length) {
+      select.replaceChildren(
+        ...faces.map((f) => new Option(`${f.index}: ${f.name}`, String(f.index))),
+      );
+    }
+    if (!info.profile) {
+      // A collection: start with the first face; the user can pick another.
+      state.face[role] = 0;
+      select.value = "0";
+      inspect(role);
+      return;
+    }
+    select.value = String(info.selected_face ?? 0);
+  }
+  renderSummary(role);
+  requestSuggestion();
+  updateButtons();
+}
+
+function requestSuggestion() {
+  const w = state.info.western && state.info.western.profile;
+  const c = state.info.cjk && state.info.cjk.profile;
+  if (!w || !c) return;
+  const id = nextId();
+  state.suggestId = id;
+  worker.postMessage({ type: "suggest", id, western: w, cjk: c });
+}
+
+function onSuggested(s) {
+  window.__fontmerge.suggestion = s;
+  let changed = false;
+  if (!state.edited.family) {
+    $("family").value = s.family;
+    changed = true;
+  }
+  if (!state.edited.style) {
+    $("style").value = s.style;
+    changed = true;
+  }
+  if (!state.edited.scale) {
+    $("scale").value = s.scale.toFixed(2);
+    changed = true;
+  }
+  $("suggested").hidden = !changed;
+  checkReservedNames();
+}
+
+$("swap").addEventListener("click", () => {
+  for (const key of ["files", "info", "inspectError", "face"]) {
+    [state[key].western, state[key].cjk] = [state[key].cjk, state[key].western];
+  }
+  for (const role of ROLES) {
+    renderFileName(role);
+    const faces = (state.info[role] && state.info[role].faces) || [];
+    $(`${role}-face-row`).hidden = faces.length < 2;
+    $(`${role}-face`).replaceChildren(
+      ...faces.map((f) => new Option(`${f.index}: ${f.name}`, String(f.index))),
+    );
+    if (state.face[role] !== null) $(`${role}-face`).value = String(state.face[role]);
+    renderSummary(role);
+  }
+  state.edited.scale = false; // the scale depends on which font is which
+  requestSuggestion();
+  updateButtons();
+});
+
+// --- settings ------------------------------------------------------------------------
+
+for (const field of ["family", "style", "scale"]) {
+  $(field).addEventListener("input", () => {
+    state.edited[field] = true;
+    if (field === "family") checkReservedNames();
+  });
+}
+
+function reservedNames() {
+  const names = [];
+  for (const role of ROLES) {
+    const p = state.info[role] && state.info[role].profile;
+    if (p) names.push(...(p.reserved_font_names || []));
+  }
+  return names;
+}
+
+// Same rule as fontmerge.metadata (case-insensitive, spaces ignored); Python enforces it too.
+function checkReservedNames() {
+  const family = $("family").value.toLowerCase();
+  const squashed = family.replace(/ /g, "");
+  const hits = reservedNames().filter((r) => {
+    const low = r.toLowerCase();
+    return family.includes(low) || squashed.includes(low.replace(/ /g, ""));
+  });
+  const warning = $("rfn-warning");
+  warning.hidden = hits.length === 0;
+  warning.dataset.names = hits.join(", ");
+  warning.textContent = hits.length ? t(state.lang, "rfnWarning", { names: hits.join("”, “") }) : "";
+  return hits;
+}
+
+function settingsFromForm() {
+  const value = (id) => $(id).value.trim();
+  const settings = {
+    naming: {
+      family: value("family"),
+      style: value("style") || "Regular",
+      version: value("font-version") || "1.000",
+      vendor_id: value("vendor") || "NONE",
+    },
+    metrics: { line_height: $("line-height").value },
+    routing: {
+      punctuation: $("punctuation").value,
+      symbols: $("symbols").value,
+      include_hangul: $("include-hangul").checked,
+      fallback: $("fallback").checked,
+      overrides: $("overrides")
+        .value.split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean),
+    },
+    normalize: { target_outline: $("outline").value },
+    format: $("format").value,
+    strict: $("strict").checked,
+  };
+  const scale = parseFloat($("scale").value);
+  if (Number.isFinite(scale)) settings.normalize.western_scale = scale;
+  const shift = parseInt($("baseline-shift").value, 10);
+  if (Number.isFinite(shift)) settings.normalize.western_baseline_shift = shift;
+  if (state.face.western !== null) settings.western_face = state.face.western;
+  if (state.face.cjk !== null) settings.cjk_face = state.face.cjk;
+  return settings;
+}
+
+// --- merging -------------------------------------------------------------------------
+
 $("form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const western = $("western").files[0];
-  const cjk = $("cjk").files[0];
-  if (!western || !cjk) {
+  if (!state.files.western || !state.files.cjk) {
     setStatus("error", "statusNeedFiles");
     return;
   }
-  mergeId += 1;
+  state.mergeId = nextId();
   resetPanels();
-  $("progress-panel").hidden = false;
-  setBusy(true);
-  const [wBytes, cBytes] = await Promise.all([readBytes(western), readBytes(cjk)]);
+  startMerge();
+  const [wBytes, cBytes] = await Promise.all([
+    state.files.western.arrayBuffer().then((b) => new Uint8Array(b)),
+    state.files.cjk.arrayBuffer().then((b) => new Uint8Array(b)),
+  ]);
   worker.postMessage(
     {
       type: "merge",
-      id: mergeId,
-      western: { name: western.name, bytes: wBytes },
-      cjk: { name: cjk.name, bytes: cBytes },
+      id: state.mergeId,
+      western: { name: state.files.western.name, bytes: wBytes },
+      cjk: { name: state.files.cjk.name, bytes: cBytes },
       settings: settingsFromForm(),
     },
     [wBytes.buffer, cBytes.buffer],
   );
 });
 
-function settingsFromForm() {
-  const settings = {
-    naming: { family: $("family").value.trim(), style: $("style").value.trim() || "Regular" },
-    metrics: { line_height: $("line-height").value },
-    format: $("format").value,
+$("cancel").addEventListener("click", () => {
+  if (!state.merging) return;
+  worker.terminate();
+  state.ready = false;
+  window.__fontmerge.ready = false;
+  state.mergeId = nextId(); // ignore anything still in flight
+  endMerge();
+  setStatus("loading", "statusCancelled");
+  window.__fontmerge.cancelled = true;
+  worker = createWorker();
+  updateButtons();
+});
+
+function startMerge() {
+  state.merging = true;
+  $("progress-panel").hidden = false;
+  $("bar").hidden = false;
+  $("bar").value = 0;
+  const started = performance.now();
+  const tick = () => {
+    $("elapsed").textContent = t(state.lang, "elapsed", { s: Math.round((performance.now() - started) / 1000) });
   };
-  const scale = parseFloat($("scale").value);
-  if (Number.isFinite(scale)) settings.normalize = { western_scale: scale };
-  const face = $("cjk-face").value.trim();
-  if (face) settings.cjk_face = /^\d+$/.test(face) ? Number(face) : face;
-  return settings;
+  tick();
+  state.timer = setInterval(tick, 1000);
+  setStatus("merging", "merging");
+  updateButtons();
 }
 
-async function readBytes(file) {
-  return new Uint8Array(await file.arrayBuffer());
+function endMerge() {
+  state.merging = false;
+  clearInterval(state.timer);
+  $("bar").hidden = true;
+  updateButtons();
 }
 
-// --- display ------------------------------------------------------------------------
+// --- display -------------------------------------------------------------------------
 
-function setStatus(state, key, vars) {
+function setStatus(stateName, key, vars) {
   const el = $("status");
-  el.dataset.state = state;
+  el.dataset.state = stateName;
   el.dataset.key = key;
   el.dataset.vars = JSON.stringify(vars || {});
-  el.textContent = t(lang, key, vars);
+  el.textContent = t(state.lang, key, vars);
 }
 
-function setBusy(busy) {
-  const button = $("merge");
-  button.disabled = busy;
-  button.textContent = t(lang, busy ? "merging" : "merge");
-  button.dataset.i18n = busy ? "merging" : "merge";
-  if (busy) setStatus("merging", "merging");
+function updateButtons() {
+  const merge = $("merge");
+  merge.disabled = state.merging || !state.ready;
+  merge.dataset.i18n = state.merging ? "merging" : "merge";
+  merge.textContent = t(state.lang, merge.dataset.i18n);
+  $("cancel").hidden = !state.merging;
+  $("swap").disabled = state.merging || !(state.files.western || state.files.cjk);
 }
 
-function updateButton() {
-  const busy = $("status").dataset.state === "merging";
-  $("merge").disabled = busy || !runtimeReady;
+function renderFileName(role) {
+  const label = $(`${role}-name`);
+  const file = state.files[role];
+  if (file) {
+    label.textContent = `${file.name} · ${(file.size / 1048576).toFixed(1)} MB`;
+    label.removeAttribute("data-i18n");
+    $(`${role}-drop`).classList.add("has-file");
+  } else {
+    label.dataset.i18n = "dropHere";
+    label.textContent = t(state.lang, "dropHere");
+    $(`${role}-drop`).classList.remove("has-file");
+  }
+}
+
+function renderSummary(role) {
+  const box = $(`${role}-summary`);
+  box.replaceChildren();
+  if (!state.files[role]) return;
+  const error = state.inspectError[role];
+  if (error) {
+    box.append(el("p", "summary-error", error.message));
+    return;
+  }
+  const info = state.info[role];
+  if (!info || !info.profile) {
+    box.append(el("p", "muted", t(state.lang, "reading")));
+    return;
+  }
+  const p = info.profile;
+  const nf = new Intl.NumberFormat(state.lang === "zh-Hant" ? "zh-TW" : "en");
+  box.append(el("p", "summary-name", `${p.family} ${p.style}`.trim()));
+  box.append(
+    el(
+      "p",
+      "muted",
+      [
+        t(state.lang, "glyphsN", { n: nf.format(p.glyphs) }),
+        t(state.lang, "charactersN", { n: nf.format(p.characters) }),
+        t(state.lang, "upmN", { n: p.upm }),
+        p.outline === "glyf" ? "TrueType" : p.outline,
+      ].join(" · "),
+    ),
+  );
+  const chips = el("p", "chips");
+  const labels = { latin: "covLatin", greek: "covGreek", cyrillic: "covCyrillic", han: "covHan", kana: "covKana", hangul: "covHangul" };
+  for (const [key, label] of Object.entries(labels)) {
+    const n = p.coverage[key];
+    if (n) chips.append(el("span", "chip", `${t(state.lang, label)} ${nf.format(n)}`));
+  }
+  box.append(chips);
+  const reserved = p.reserved_font_names.length ? p.reserved_font_names.join(", ") : t(state.lang, "none");
+  box.append(
+    el("p", "muted", `${t(state.lang, "embedding")}: ${p.embedding} · ${t(state.lang, "reservedNames")}: ${reserved}`),
+  );
+  const issues = role === "western" ? p.as_western : p.as_cjk;
+  const shown = issues.filter((i) => i.code !== "license-reserved-names");
+  if (shown.length) {
+    const list = el("ul", "summary-issues");
+    for (const issue of shown) list.append(el("li", issue.severity, issueText(state.lang, issue, role, p)));
+    box.append(list);
+  }
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
 
 function addProgress(message) {
   const li = document.createElement("li");
   li.dataset.raw = message;
-  li.textContent = translateProgress(lang, message);
+  li.textContent = translateProgress(state.lang, message);
   $("progress").append(li);
+  $("bar").value = Math.min($("progress").children.length, TOTAL_STEPS);
 }
 
 function resetPanels() {
@@ -141,6 +443,7 @@ function resetPanels() {
   $("result-panel").hidden = true;
   window.__fontmerge.lastResult = null;
   window.__fontmerge.lastError = null;
+  window.__fontmerge.cancelled = false;
 }
 
 function showError(error) {
@@ -152,47 +455,36 @@ function showError(error) {
   const detail = $("error-detail");
   detail.hidden = !error.detail;
   detail.textContent = error.detail || "";
-  setBusy(false);
-  updateButton();
+  updateButtons();
 }
 
 function showResult(msg) {
   const { meta, font } = msg;
   const report = meta.report;
-  if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+  endMerge();
+  if (state.downloadUrl) URL.revokeObjectURL(state.downloadUrl);
   const type = meta.format === "otf" ? "font/otf" : meta.format === "woff2" ? "font/woff2" : "font/ttf";
-  downloadUrl = URL.createObjectURL(new Blob([font], { type }));
+  state.downloadUrl = URL.createObjectURL(new Blob([font], { type }));
   const link = $("download");
-  link.href = downloadUrl;
+  link.href = state.downloadUrl;
   link.download = meta.filename;
   $("r-file").textContent = `${meta.filename} · ${(font.byteLength / 1048576).toFixed(1)} MB`;
 
-  const nf = new Intl.NumberFormat(lang === "zh-Hant" ? "zh-TW" : "en");
+  const nf = new Intl.NumberFormat(state.lang === "zh-Hant" ? "zh-TW" : "en");
   const chars = (report.coverage.western || 0) + (report.coverage.cjk || 0);
   $("r-glyphs").textContent = nf.format(report.glyph_count);
   $("r-chars").textContent = nf.format(chars);
+  $("r-chars").title = `${nf.format(report.coverage.western)} ${t(state.lang, "fromWestern")}, ${nf.format(report.coverage.cjk)} ${t(state.lang, "fromCjk")}`;
   $("r-time").textContent = `${meta.seconds} s`;
   $("r-memory").textContent = msg.wasmHeapBytes ? `${Math.round(msg.wasmHeapBytes / 1048576)} MB` : "–";
-  $("r-chars").title = `${nf.format(report.coverage.western)} ${t(lang, "fromWestern")}, ${nf.format(report.coverage.cjk)} ${t(lang, "fromCjk")}`;
 
   const list = $("issues");
   list.replaceChildren();
-  if (!report.issues.length) {
-    const li = document.createElement("li");
-    li.textContent = t(lang, "noIssues");
-    list.append(li);
-  }
-  for (const issue of report.issues) {
-    const li = document.createElement("li");
-    li.className = issue.severity;
-    li.textContent = `[${issue.severity}] ${issue.message}`;
-    list.append(li);
-  }
+  if (!report.issues.length) list.append(el("li", "", t(state.lang, "noIssues")));
+  for (const issue of report.issues) list.append(el("li", issue.severity, `[${issue.severity}] ${issue.message}`));
 
   $("result-panel").hidden = false;
-  setBusy(false);
   setStatus("done", "statusDone", { seconds: meta.seconds });
-  updateButton();
   window.__fontmerge.lastResult = {
     filename: meta.filename,
     seconds: meta.seconds,
@@ -207,31 +499,32 @@ function showResult(msg) {
 // --- language and footer -----------------------------------------------------------
 
 function renderLanguage() {
-  applyLanguage(lang);
+  applyLanguage(state.lang);
   const status = $("status");
-  if (status.dataset.key) status.textContent = t(lang, status.dataset.key, JSON.parse(status.dataset.vars || "{}"));
-  for (const li of $("progress").children) li.textContent = translateProgress(lang, li.dataset.raw);
-  for (const id of ["western", "cjk"]) {
-    const file = $(id).files[0];
-    if (file) $(`${id}-name`).textContent = `${file.name} · ${(file.size / 1048576).toFixed(1)} MB`;
+  if (status.dataset.key) status.textContent = t(state.lang, status.dataset.key, JSON.parse(status.dataset.vars || "{}"));
+  for (const li of $("progress").children) li.textContent = translateProgress(state.lang, li.dataset.raw);
+  for (const role of ROLES) {
+    renderFileName(role);
+    renderSummary(role);
   }
-  $("footer").textContent = t(lang, "footer", { version: build.version, commit: build.commit });
+  checkReservedNames();
+  updateButtons();
+  $("footer").textContent = t(state.lang, "footer", { version: state.build.version, commit: state.build.commit });
 }
 
 $("lang").addEventListener("click", () => {
-  lang = lang === "zh-Hant" ? "en" : "zh-Hant";
-  saveLanguage(lang);
+  state.lang = state.lang === "zh-Hant" ? "en" : "zh-Hant";
+  saveLanguage(state.lang);
   renderLanguage();
 });
 
 fetch("build.json", { cache: "no-cache" })
   .then((r) => (r.ok ? r.json() : null))
   .then((data) => {
-    if (data) build = { version: data.version, commit: String(data.commit).slice(0, 7) };
+    if (data) state.build = { version: data.version, commit: String(data.commit).slice(0, 7) };
     renderLanguage();
   })
   .catch(() => renderLanguage());
 
 renderLanguage();
 setStatus("loading", "statusLoadingRuntime");
-updateButton();

@@ -197,3 +197,79 @@ def test_real_merge_bytes(literata: Path, iansui: Path) -> None:
     assert len(font.getBestCmap()) == 13301
     assert result["report"]["coverage"] == {"western": 1147, "cjk": 12154}
     assert result["filename"] == "IansuiLiterata-Light.ttf"
+
+
+# W2: suggestions, reserved names, overrides, collection hint -----------------------------
+
+
+def test_inspect_reports_style(latin_ttf: Path) -> None:
+    assert inspect_bytes(read(latin_ttf))["profile"]["style"] == "Regular"
+
+
+def test_suggest_matches_cli_auto_scale(latin_ttf: Path, cjk_otf: Path) -> None:
+    from fontmerge.inspector import inspect_font
+    from fontmerge.loader import load_font
+    from fontmerge.normalize import auto_western_scale
+    from fontmerge.web import suggest
+
+    w = inspect_bytes(read(latin_ttf))["profile"]
+    c = inspect_bytes(read(cjk_otf))["profile"]
+    s = suggest(w, c)
+    assert s["family"] == "Test CJK Test Latin"
+    assert s["style"] == "Regular"
+    expected = auto_western_scale(
+        inspect_font(load_font(latin_ttf)), inspect_font(load_font(cjk_otf))
+    )
+    assert s["scale_exact"] == expected
+    assert s["scale"] == round(expected, 2)
+    assert s["reserved_conflicts"] == []
+
+
+def test_suggest_flags_reserved_names(latin_ttf: Path, cjk_otf: Path) -> None:
+    from fontmerge.web import suggest
+
+    w = {**inspect_bytes(read(latin_ttf))["profile"], "reserved_font_names": ["Test Latin"]}
+    c = inspect_bytes(read(cjk_otf))["profile"]
+    assert suggest(w, c)["reserved_conflicts"] == ["Test Latin"]
+
+
+@pytest.mark.parametrize(
+    ("family", "expected"),
+    [("Iansui Literata", ["Literata"]), ("IansuiLITERATA", ["Literata"]), ("Iansui Serif", [])],
+)
+def test_reserved_conflicts(family: str, expected: list[str]) -> None:
+    from fontmerge.web import reserved_conflicts
+
+    assert reserved_conflicts(family, ["Literata"]) == expected
+
+
+def test_overrides_as_text(latin_ttf: Path, cjk_otf: Path) -> None:
+    result = merge_bytes(
+        read(latin_ttf),
+        read(cjk_otf),
+        {"naming": {"family": "F"}, "routing": {"overrides": ["U+0041=cjk"]}},
+    )
+    font = TTFont(BytesIO(result["font"]))
+    assert font["hmtx"][font.getBestCmap()[0x41]][0] == 650  # the CJK test font's 'A'
+
+
+def test_collection_hint_fits_the_page(latin_ttf: Path, cjk_ttc: Path) -> None:
+    with pytest.raises(ConfigError) as exc:
+        merge_bytes(read(latin_ttf), read(cjk_ttc), {"naming": {"family": "F"}})
+    assert exc.value.hint == "pick a face from the menu under the CJK font"
+
+
+@pytest.mark.realfont
+def test_real_suggestion_is_the_chosen_setup(literata: Path, iansui: Path) -> None:
+    from fontmerge.web import suggest
+
+    s = suggest(inspect_bytes(read(literata))["profile"], inspect_bytes(read(iansui))["profile"])
+    assert (s["family"], s["style"], s["scale"]) == ("Iansui Literata", "Light", 0.96)
+
+
+def test_strict_setting(latin_ttf: Path, cjk_otf: Path) -> None:
+    from fontmerge.errors import ValidationFailedError
+
+    # The tiny CJK test font triggers a coverage warning, which strict mode refuses.
+    with pytest.raises(ValidationFailedError, match="role-coverage"):
+        merge_bytes(read(latin_ttf), read(cjk_otf), {"naming": {"family": "F"}, "strict": True})

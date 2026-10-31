@@ -76,5 +76,5 @@ def test_every_ui_string_is_translated() -> None:
     en_keys, zh_keys = set(key.findall(en_block)), set(key.findall(zh_block))
     assert en_keys == zh_keys, en_keys ^ zh_keys
     html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
-    used = set(re.findall(r'data-i18n(?:-placeholder)?="(\w+)"', html))
+    used = set(re.findall(r'data-i18n(?:-placeholder|-title)?="(\w+)"', html))
     assert used <= en_keys, used - en_keys

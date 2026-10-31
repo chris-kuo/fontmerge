@@ -22,56 +22,113 @@
 
     <form id="form" novalidate>
       <section class="fonts">
-        <label class="drop">
-          <span class="drop-title" data-i18n="westernFont"></span>
-          <span class="drop-help" data-i18n="westernHelp"></span>
-          <input id="western" name="western" type="file" accept=".ttf,.otf,.ttc,.otc,.woff,.woff2">
-          <span class="file-name" id="western-name" data-i18n="chooseFile"></span>
-        </label>
-        <label class="drop">
-          <span class="drop-title" data-i18n="cjkFont"></span>
-          <span class="drop-help" data-i18n="cjkHelp"></span>
-          <input id="cjk" name="cjk" type="file" accept=".ttf,.otf,.ttc,.otc,.woff,.woff2">
-          <span class="file-name" id="cjk-name" data-i18n="chooseFile"></span>
-        </label>
+        <div class="font-slot" data-role="western">
+          <label class="drop" id="western-drop">
+            <span class="drop-title" data-i18n="westernFont"></span>
+            <span class="drop-help" data-i18n="westernHelp"></span>
+            <input id="western" class="visually-hidden" type="file" accept=".ttf,.otf,.ttc,.otc,.woff,.woff2">
+            <span class="file-name" id="western-name" data-i18n="dropHere"></span>
+          </label>
+          <label class="face" id="western-face-row" hidden><span data-i18n="face"></span>
+            <select id="western-face"></select>
+          </label>
+          <div class="summary" id="western-summary" aria-live="polite"></div>
+        </div>
+
+        <button id="swap" class="swap" type="button" title="" data-i18n-title="swap" disabled>⇄</button>
+
+        <div class="font-slot" data-role="cjk">
+          <label class="drop" id="cjk-drop">
+            <span class="drop-title" data-i18n="cjkFont"></span>
+            <span class="drop-help" data-i18n="cjkHelp"></span>
+            <input id="cjk" class="visually-hidden" type="file" accept=".ttf,.otf,.ttc,.otc,.woff,.woff2">
+            <span class="file-name" id="cjk-name" data-i18n="dropHere"></span>
+          </label>
+          <label class="face" id="cjk-face-row" hidden><span data-i18n="face"></span>
+            <select id="cjk-face"></select>
+          </label>
+          <div class="summary" id="cjk-summary" aria-live="polite"></div>
+        </div>
       </section>
 
       <section class="settings">
         <label><span data-i18n="family"></span>
-          <input id="family" name="family" type="text" value="Merged" required maxlength="63">
+          <input id="family" type="text" value="Merged" maxlength="63" autocomplete="off">
         </label>
         <label><span data-i18n="style"></span>
-          <input id="style" name="style" type="text" value="Regular" maxlength="63">
+          <input id="style" type="text" value="Regular" maxlength="63" autocomplete="off">
         </label>
         <label><span data-i18n="scale"></span>
-          <input id="scale" name="scale" type="number" min="0.5" max="2" step="0.01" data-i18n-placeholder="scaleHelp">
+          <input id="scale" type="number" min="0.5" max="2" step="0.01" data-i18n-placeholder="scaleHelp">
         </label>
         <label><span data-i18n="lineHeight"></span>
-          <select id="line-height" name="lineHeight">
+          <select id="line-height">
             <option value="cjk" data-i18n="lineCjk"></option>
             <option value="western" data-i18n="lineWestern"></option>
             <option value="max" data-i18n="lineMax"></option>
           </select>
         </label>
-        <label><span data-i18n="cjkFace"></span>
-          <input id="cjk-face" name="cjkFace" type="text" data-i18n-placeholder="cjkFaceHelp">
-        </label>
         <label><span data-i18n="format"></span>
-          <select id="format" name="format">
+          <select id="format">
             <option value="ttf" selected>TTF</option>
             <option value="otf">OTF</option>
           </select>
         </label>
+        <p id="suggested" class="suggested" data-i18n="suggested" hidden></p>
       </section>
+      <p id="rfn-warning" class="warning" hidden></p>
+
+      <details class="more">
+        <summary data-i18n="more"></summary>
+        <div class="settings">
+          <label><span data-i18n="punctuation"></span>
+            <select id="punctuation">
+              <option value="split" data-i18n="punctSplit"></option>
+              <option value="western" data-i18n="punctWestern"></option>
+              <option value="cjk" data-i18n="punctCjk"></option>
+            </select>
+          </label>
+          <label><span data-i18n="symbols"></span>
+            <select id="symbols">
+              <option value="cjk" data-i18n="fromCjkFont"></option>
+              <option value="western" data-i18n="fromWesternFont"></option>
+            </select>
+          </label>
+          <label><span data-i18n="outline"></span>
+            <select id="outline">
+              <option value="auto" data-i18n="outlineAuto"></option>
+              <option value="glyf">TrueType (glyf)</option>
+              <option value="CFF">CFF</option>
+            </select>
+          </label>
+          <label><span data-i18n="baselineShift"></span>
+            <input id="baseline-shift" type="number" step="1" placeholder="0">
+          </label>
+          <label><span data-i18n="fontVersion"></span>
+            <input id="font-version" type="text" value="1.000" pattern="\d+\.\d{3}">
+          </label>
+          <label><span data-i18n="vendor"></span>
+            <input id="vendor" type="text" value="NONE" maxlength="4">
+          </label>
+          <label class="check"><input id="include-hangul" type="checkbox"> <span data-i18n="includeHangul"></span></label>
+          <label class="check"><input id="fallback" type="checkbox" checked> <span data-i18n="fallback"></span></label>
+          <label class="check"><input id="strict" type="checkbox"> <span data-i18n="strict"></span></label>
+          <label class="wide"><span data-i18n="overrides"></span>
+            <textarea id="overrides" rows="3" spellcheck="false" data-i18n-placeholder="overridesHelp"></textarea>
+          </label>
+        </div>
+      </details>
 
       <div class="actions">
         <button id="merge" class="primary" type="submit" data-i18n="merge"></button>
+        <button id="cancel" type="button" data-i18n="cancel" hidden></button>
         <p id="status" class="status" data-state="loading" role="status" aria-live="polite"></p>
       </div>
+      <progress id="bar" max="11" value="0" hidden></progress>
     </form>
 
     <section id="progress-panel" class="panel" hidden>
-      <h2 data-i18n="progress"></h2>
+      <h2><span data-i18n="progress"></span> <span id="elapsed" class="elapsed"></span></h2>
       <ol id="progress" class="progress"></ol>
     </section>
 

@@ -49,10 +49,24 @@ def auto_western_scale(western: FontProfile, cjk: FontProfile) -> float:
     as a fraction of the em), so neither lowercase nor capitals drift far. Returns 1.0
     when either font lacks the metrics, and clamps to ``AUTO_SCALE_RANGE``.
     """
-    if not (western.x_height and western.cap_height and cjk.x_height and cjk.cap_height):
+    return scale_from_metrics(
+        western.x_height, western.cap_height, western.upm, cjk.x_height, cjk.cap_height, cjk.upm
+    )
+
+
+def scale_from_metrics(
+    w_x_height: int | None,
+    w_cap_height: int | None,
+    w_upm: int,
+    c_x_height: int | None,
+    c_cap_height: int | None,
+    c_upm: int,
+) -> float:
+    """The ``auto_western_scale`` formula on bare numbers (also used by the web app)."""
+    if not (w_x_height and w_cap_height and c_x_height and c_cap_height):
         return 1.0
-    xh = (cjk.x_height / cjk.upm) / (western.x_height / western.upm)
-    cap = (cjk.cap_height / cjk.upm) / (western.cap_height / western.upm)
+    xh = (c_x_height / c_upm) / (w_x_height / w_upm)
+    cap = (c_cap_height / c_upm) / (w_cap_height / w_upm)
     scale = math.sqrt(xh * cap)
     lo, hi = AUTO_SCALE_RANGE
     return round(min(max(scale, lo), hi), 3)

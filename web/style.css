@@ -30,6 +30,9 @@
 
 * { box-sizing: border-box; }
 
+/* The hidden attribute must win over component display rules. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -94,7 +97,7 @@ button:disabled { opacity: 0.55; cursor: progress; }
   gap: 12px 16px;
   margin: 20px 0;
 }
-.settings label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--muted); }
+.settings label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--muted); min-width: 0; }
 .settings input, .settings select {
   font: inherit;
   color: var(--text);
@@ -103,6 +106,7 @@ button:disabled { opacity: 0.55; cursor: progress; }
   border-radius: 6px;
   padding: 7px 9px;
   min-width: 0;
+  width: 100%;
 }
 
 .actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
@@ -132,3 +136,55 @@ footer { color: var(--muted); font-size: 13px; padding-bottom: 32px; }
   .stats { grid-template-columns: 1fr 1fr; }
   .top { padding-top: 20px; }
 }
+
+/* W2: font slots, summaries, more settings, progress ------------------------------ */
+
+.fonts { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; }
+.font-slot { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.drop { min-height: 132px; justify-content: center; }
+.drop.over { border-color: var(--accent); background: var(--surface); }
+.drop.has-file { border-style: solid; }
+.drop .file-name { margin-top: 10px; color: var(--accent); font-weight: 500; }
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.drop:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.swap { align-self: center; margin-top: 46px; padding: 6px 10px; font-size: 18px; line-height: 1; }
+
+.face { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--muted); }
+.face select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; }
+
+.summary { font-size: 14px; }
+.summary p { margin: 2px 0; }
+.summary-name { font-weight: 600; font-size: 15px; }
+.summary-error { color: var(--error); }
+.muted { color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 !important; }
+.chip { background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 1px 9px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.summary-issues { margin: 6px 0 0; padding-left: 18px; }
+.summary-issues .warning, .issues .warning { color: var(--warn); }
+.summary-issues .error { color: var(--error); }
+.summary-issues .info { color: var(--muted); }
+
+.suggested { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--muted); }
+.warning { color: var(--warn); margin: -8px 0 16px; font-size: 14px; }
+
+.more { margin: 0 0 20px; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; }
+.more summary { cursor: pointer; font-weight: 600; }
+.more .settings { margin: 14px 0 4px; }
+.settings .check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); }
+.settings .wide { grid-column: 1 / -1; }
+.settings textarea { font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; resize: vertical; }
+
+#bar { width: 100%; margin-top: 12px; height: 8px; accent-color: var(--accent); }
+.elapsed { font-weight: 400; color: var(--muted); font-size: 14px; margin-left: 6px; }
+
+@media (max-width: 640px) {
+  .fonts { grid-template-columns: 1fr; }
+  .swap { margin: 0 auto; transform: rotate(90deg); }
+}
+
+.settings .check input { width: auto; }
+.panel, .summary { overflow-wrap: anywhere; }

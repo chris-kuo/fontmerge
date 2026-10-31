@@ -20,10 +20,12 @@ from typing import Any
 from pydantic import ValidationError
 
 from fontmerge import __version__
+from fontmerge.config import parse_override
 from fontmerge.errors import ConfigError, FontMergeError
 from fontmerge.inspector import check_profile, describe_fs_type, inspect_font
 from fontmerge.loader import list_faces, load_font
 from fontmerge.models import FontProfile, MergeConfig, Source
+from fontmerge.normalize import scale_from_metrics
 from fontmerge.pipeline import run
 from fontmerge.writer import report_to_dict
 
@@ -59,8 +61,45 @@ def inspect_bytes(data: bytes, face: int | str | None = None, name: str = "font"
         src = load_font(path, face, allow_variable=True)
         profile = inspect_font(src)
         result["profile"] = profile_to_dict(profile, src.is_variable)
+        result["profile"]["style"] = _style_name(src.ttfont)
         result["selected_face"] = src.face_index
         return result
+
+
+def suggest(western: Mapping[str, Any], cjk: Mapping[str, Any]) -> dict[str, Any]:
+    """Suggested family, style and Western scale for two inspected fonts.
+
+    ``western`` and ``cjk`` are the ``profile`` dicts from ``inspect_bytes``. The scale
+    uses the same formula as the command line's automatic scale.
+    """
+    w_family = str(western.get("family") or "").strip()
+    c_family = str(cjk.get("family") or "").strip()
+    family = " ".join(p for p in (c_family, w_family) if p) or "Merged"
+    scale = scale_from_metrics(
+        western.get("x_height"),
+        western.get("cap_height"),
+        int(western.get("upm") or 1000),
+        cjk.get("x_height"),
+        cjk.get("cap_height"),
+        int(cjk.get("upm") or 1000),
+    )
+    reserved = [*western.get("reserved_font_names", []), *cjk.get("reserved_font_names", [])]
+    return {
+        "family": family[:63],
+        "style": str(western.get("style") or "Regular"),
+        "scale": round(scale, 2),  # the page's scale field moves in steps of 0.01
+        "scale_exact": scale,
+        "reserved_conflicts": reserved_conflicts(family, reserved),
+    }
+
+
+def reserved_conflicts(family: str, reserved: list[str]) -> list[str]:
+    """Reserved Font Names that ``family`` uses (same rule as the Metadata Builder)."""
+    name = family.casefold()
+    squashed = name.replace(" ", "")
+    return [
+        r for r in reserved if r.casefold() in name or r.casefold().replace(" ", "") in squashed
+    ]
 
 
 def merge_bytes(
@@ -87,11 +126,20 @@ def merge_bytes(
     fmt = str(settings.pop("format", DEFAULT_FORMAT)).lower()
     if fmt not in OUTPUT_FORMATS:
         raise ConfigError(f"unknown output format {fmt!r}", hint="use ttf, otf or woff2")
+    strict = bool(settings.pop("strict", False))
     western_face = settings.pop("western_face", None)
     cjk_face = settings.pop("cjk_face", None)
     naming = dict(settings.pop("naming", {}) or {})
     if not naming.get("family"):
         raise ConfigError("a family name is required", hint="enter a family name for the new font")
+
+    routing = dict(settings.pop("routing", {}) or {})
+    if routing.get("overrides"):
+        routing["overrides"] = [
+            parse_override(o) if isinstance(o, str) else o for o in routing["overrides"]
+        ]
+    if routing:
+        settings["routing"] = routing
 
     start = time.monotonic()
     with tempfile.TemporaryDirectory(prefix="fontmerge-") as tmp:
@@ -100,6 +148,13 @@ def merge_bytes(
         c_path = root / ("c-" + _safe_name(cjk_name, "cjk.ttf"))
         w_path.write_bytes(bytes(western))
         c_path.write_bytes(bytes(cjk))
+        for path, face, role in ((w_path, western_face, "Western"), (c_path, cjk_face, "CJK")):
+            faces = list_faces(path)
+            if len(faces) > 1 and face is None:
+                raise ConfigError(
+                    f"the {role} font is a collection with {len(faces)} faces; choose one",
+                    hint=f"pick a face from the menu under the {role} font",
+                )
         filename = output_filename(naming["family"], naming.get("style") or "Regular", fmt)
         out_path = root / "out" / filename
 
@@ -107,7 +162,7 @@ def merge_bytes(
             **settings,
             "western": {"path": w_path, "face": western_face},
             "cjk": {"path": c_path, "face": cjk_face},
-            "output": {"path": out_path, "write_report": False},
+            "output": {"path": out_path, "write_report": False, "strict": strict},
             "naming": naming,
         }
         try:
@@ -183,6 +238,14 @@ def output_filename(family: str, style: str, fmt: str) -> str:
 
 
 # --------------------------------------------------------------------------------------
+
+
+def _style_name(font: Any) -> str:
+    name = font.get("name")
+    if name is None:
+        return "Regular"
+    value = name.getDebugName(17) or name.getDebugName(2) or "Regular"
+    return str(value).strip() or "Regular"
 
 
 def _safe_name(name: str, default: str) -> str:
