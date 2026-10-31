@@ -461,8 +461,12 @@ def test_woff2_output(ready_page: Page, latin_ttf: Path, cjk_otf: Path, tmp_path
     assert state["lastError"] is None, state["lastError"]
     assert state["lastResult"]["filename"].endswith(".woff2")
     assert (ready_page.text_content("#download-format") or "").strip() == "WOFF2"
-    font = download(ready_page, tmp_path)
-    assert font.flavor == "woff2"
+    with ready_page.expect_download() as info:
+        ready_page.click("#download")
+    path = tmp_path / info.value.suggested_filename
+    info.value.save_as(path)
+    assert path.read_bytes()[:4] == b"wOF2"  # WOFF2 signature
+    assert TTFont(str(path)).flavor == "woff2"  # decodes (needs brotli on the test side)
     ready_page.wait_for_function("window.__fontmerge.preview", timeout=60_000)
 
 
