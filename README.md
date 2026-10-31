@@ -22,7 +22,7 @@ x-height (0.505 em) sits closer to Iansui's (0.468 em) while capitals stay close
 ## Development
 
 ```bash
-pip install -e ".[dev,woff2]"
+pip install -e ".[dev,woff2,preview,ots]"
 pytest
 ruff check . && ruff format --check .
 mypy            # if mypy runs in its own env: mypy --python-executable "$(which python)"
@@ -45,6 +45,9 @@ src/fontmerge/
   normalize.py  match UPM and outline format, scale/shift Western glyphs, add vertical metrics
   merge.py      combine the fonts (CJK as base), rename clashing glyphs, convert legacy kern
   metadata.py   names, line metrics, style bits, embedding, licence, OS/2 recalculation
+  validate.py   check the merged font (coverage, source of every character, metrics, names, OTS)
+  writer.py     write TTF/OTF/WOFF2 atomically plus a JSON report; refuse on errors
+  preview.py    HTML (@font-face) or PNG sample sheet
 tests/
   fontfactory.py   builds test fonts (Latin TTF, CJK OTF, TTC, variable)
   conftest.py      pytest fixtures for those fonts
@@ -61,5 +64,5 @@ tests/
 | 3 | Subsetter | Done |
 | 4 | Normalizer | Done |
 | 5 | Merger, Metadata | Done |
-| 6 | Validator, Writer, Preview | |
+| 6 | Validator, Writer, Preview | Done |
 | 7 | Orchestrator, CLI | |

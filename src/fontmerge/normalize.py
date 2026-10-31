@@ -161,15 +161,20 @@ def synthesize_vertical_metrics(western: TTFont, cjk: TTFont, advance: int, top:
     """Give every Western glyph vertical metrics matching the CJK font's em box.
 
     Upright Latin in vertical text then advances one em per glyph, with its top side
-    bearing measured from the top of the ideographic em box.
+    bearing measured from the top of the ideographic em box. Blank glyphs advance by
+    their horizontal width instead.
     """
     glyph_set = western.getGlyphSet()
     metrics: dict[str, tuple[int, int]] = {}
     for name in western.getGlyphOrder():
         pen = BoundsPen(glyph_set)
         glyph_set[name].draw(pen)
-        tsb = top - math.ceil(pen.bounds[3]) if pen.bounds else 0
-        metrics[name] = (advance, tsb)
+        if pen.bounds:
+            metrics[name] = (advance, top - math.ceil(pen.bounds[3]))
+        else:
+            # Blank glyphs (spaces, zero-width marks) advance by their own width,
+            # so a space in vertical text is a space, not a full em.
+            metrics[name] = (western["hmtx"][name][0], 0)
 
     vmtx = newTable("vmtx")
     vmtx.metrics = metrics
@@ -187,7 +192,7 @@ def synthesize_vertical_metrics(western: TTFont, cjk: TTFont, advance: int, top:
     vhea.reserved1 = vhea.reserved2 = vhea.reserved3 = vhea.reserved4 = 0
     vhea.metricDataFormat = 0
     vhea.numberOfVMetrics = len(metrics)
-    vhea.advanceHeightMax = advance
+    vhea.advanceHeightMax = max(a for a, _ in metrics.values())
     vhea.minTopSideBearing = min(t for _, t in metrics.values())
     vhea.minBottomSideBearing = 0
     vhea.yMaxExtent = 0

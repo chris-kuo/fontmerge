@@ -68,6 +68,31 @@ def real_merge(literata: Path, iansui: Path) -> dict[str, Any]:
     }
 
 
+@pytest.fixture
+def small_merge(latin_ttf: Path, cjk_otf: Path) -> dict[str, Any]:
+    """The generated test fonts through every stage up to metadata (fast; fresh per test)."""
+    from fontmerge.inspector import inspect_font
+    from fontmerge.loader import load_font
+    from fontmerge.merge import merge_fonts
+    from fontmerge.metadata import build_metadata
+    from fontmerge.models import NamingConfig, NormalizePlan, RoutingConfig
+    from fontmerge.normalize import normalize
+    from fontmerge.router import build_plan
+    from fontmerge.subset import subset_pair
+
+    w_src, c_src = load_font(latin_ttf), load_font(cjk_otf)
+    w_prof, c_prof = inspect_font(w_src), inspect_font(c_src)
+    route = build_plan(w_prof, c_prof, RoutingConfig())
+    w, c = subset_pair(w_src, c_src, route)
+    plan = NormalizePlan(
+        target_upm=1000, target_outline="glyf", vertical_advance=1000, vertical_top=880
+    )
+    w, c = normalize(w, c, plan)
+    merged = merge_fonts(w, c)
+    build_metadata(merged, w_prof, c_prof, NamingConfig(family="Test Merged"), None, plan)
+    return {"font": merged, "western": w, "cjk": c, "route": route}
+
+
 @pytest.fixture(scope="session")
 def font_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return tmp_path_factory.mktemp("fonts")

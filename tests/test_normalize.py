@@ -203,12 +203,11 @@ def test_vertical_metrics_synthesized(latin: TTFont, cjk: TTFont, tmp_path: Path
     adv, tsb = vmtx["H"]
     assert adv == 1000
     assert tsb == 880 - round(bounds(w, "H")[3])
-    assert vmtx["space"] == (1000, 0)
+    assert vmtx["space"] == (w["hmtx"]["space"][0], 0)  # blank: its own width, not an em
     assert w["vhea"].ascent == cjk["vhea"].ascent
     reloaded = round_trip(w, tmp_path / "v.otf")
-    # All advances are equal, so the stored table collapses them into one record.
-    assert reloaded["vhea"].numberOfVMetrics == 1
     assert reloaded["vmtx"]["H"] == (1000, tsb)
+    assert reloaded["vmtx"]["space"] == vmtx["space"]
 
 
 def test_no_vertical_metrics_when_cjk_has_none(latin: TTFont, cjk: TTFont) -> None:
