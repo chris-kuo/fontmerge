@@ -38,6 +38,13 @@ def test_cmap_is_exactly_the_requested_set(latin_ttf: Path) -> None:
     assert len(out.getGlyphOrder()) == len(wanted) + 1  # + .notdef
 
 
+def test_bidi_mirror_not_added(iansui: Path) -> None:
+    # Regression: merging Gentium Book Plus + Iansui failed with "wrong-source U+223C",
+    # because asking Iansui for U+223D (reversed tilde) also kept its bidi mirror U+223C.
+    font = subset_font(load_font(iansui), {0x223D, 0x28})
+    assert set(font.getBestCmap()) == {0x223D, 0x28}
+
+
 def test_kerning_kept_for_kept_glyphs(latin_ttf: Path) -> None:
     out = subset_font(load_font(latin_ttf), {0x41, 0x42})
     assert "kern" in _features(out, "GPOS")

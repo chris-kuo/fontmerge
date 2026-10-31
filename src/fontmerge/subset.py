@@ -72,6 +72,10 @@ def _ft_options(opts: SubsetOptions) -> ft_subset.Options:
     o.hinting = opts.keep_hinting
     o.legacy_kern = opts.keep_legacy_kern
     o.prune_unicode_ranges = True
+    # fontTools adds each requested character's bidi mirror (U+223D brings in U+223C,
+    # "(" brings in ")"). The router may have given the mirror to the other font, and the
+    # extra cmap entry would then override it in the merge, so keep exactly the plan.
+    o.bidi_closure = False
     o.recalc_bounds = True
     drop = [t for t in o.drop_tables if t not in _ALWAYS_KEEP]
     o.drop_tables = drop + [t for t in opts.drop_tables if t not in drop]
