@@ -128,6 +128,15 @@ The first visit also downloads Pyodide and its packages once; later visits use t
 browser cache. 322 MB is comfortable on desktop browsers; phones remain a risk for large
 CJK fonts, to be checked by hand in W3.
 
+## W2 results (Oct 30, 2026)
+
+Inputs and settings are done: drop zones, font summaries, `.ttc` face menus, suggested
+family/style/scale (same formula as the CLI), Reserved Font Name warning, swap, every CLI
+merge option under "More settings", progress bar and cancel. CI: 20 browser tests pass.
+For Literata Light + Iansui the page suggests "Iansui Literata", "Light", 0.96 by itself.
+Browser merge time on this run: 39.0 s (native 20.8 s on the same runner; shared CI
+runners vary by about ±30% between runs).
+
 ## Public deployment plan
 
 **Host: GitHub Pages**, built and published by a GitHub Actions workflow from the public repo.
