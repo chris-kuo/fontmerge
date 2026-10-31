@@ -142,8 +142,11 @@ the development workspace cannot reach the Pyodide CDN.
 | Pyodide differences from CPython | A dependency could behave differently | The W1 test compares browser output with CLI output glyph for glyph |
 | Dev workspace cannot reach the CDN | Browser tests cannot run there | Browser tests run in GitHub Actions; Chris spot-checks each stage in his own browser |
 
-## Decisions to confirm
+## Decisions
 
-1. Page language: English only, or English with a Traditional Chinese (繁體中文) toggle?
-2. Address: the default `chris-kuo.github.io/fontmerge`, or a custom domain?
-3. Output formats offered by default: TTF and WOFF2 (suggested), plus OTF on request?
+| Question | Decision (Oct 30, 2026) |
+| --- | --- |
+| Page language | English and Traditional Chinese (繁體中文), detected from the browser and switchable; the choice is remembered |
+| Address | `https://chris-kuo.github.io/fontmerge/` on GitHub Pages |
+| Output format | TTF by default; OTF available |
+| Pyodide version | 314.0.5, pinned in `web/worker.js` |
