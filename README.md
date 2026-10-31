@@ -14,8 +14,9 @@ The first real merge this tool is being built for:
 | Western | Literata Light | Stem weight matches Iansui; covers pinyin, Greek, Cyrillic |
 | CJK | Iansui Regular | Traditional Chinese, with kana and Bopomofo |
 
-Planned adjustment: scale Literata's glyphs to 96% (Stage 4) so its x-height
-(0.505 em) sits closer to Iansui's (0.468 em) while capitals stay close (0.673 vs 0.695 em).
+Adjustment: Literata's glyphs are scaled to 96% (`western_scale = 0.96`) so its
+x-height (0.505 em) sits closer to Iansui's (0.468 em) while capitals stay close
+(0.673 vs 0.695 em). The automatic scale (`auto_western_scale`) arrives at the same value.
 
 ## Development
 
@@ -40,6 +41,7 @@ src/fontmerge/
   unicode_ranges.py  Unicode blocks -> routing categories
   router.py     decide which font supplies each codepoint (AssignmentPlan)
   subset.py     cut each font to its assigned codepoints, keeping feature-reachable glyphs
+  normalize.py  match UPM and outline format, scale/shift Western glyphs, add vertical metrics
 tests/
   fontfactory.py   builds test fonts (Latin TTF, CJK OTF, TTC, variable)
   conftest.py      pytest fixtures for those fonts
@@ -54,7 +56,7 @@ tests/
 | 1 | Loader, Inspector | Done |
 | 2 | Script Router | Done |
 | 3 | Subsetter | Done |
-| 4 | Normalizer | |
+| 4 | Normalizer | Done |
 | 5 | Merger, Metadata | |
 | 6 | Validator, Writer, Preview | |
 | 7 | Orchestrator, CLI | |

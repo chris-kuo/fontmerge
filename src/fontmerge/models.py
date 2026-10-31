@@ -299,7 +299,10 @@ class NormalizePlan:
     western_scale: float = 1.0
     western_baseline_shift: int = 0
     vertical_advance: int | None = None
-    """Advance height for synthesized Western ``vmtx`` entries. ``None`` = target UPM."""
+    """Advance height for synthesized Western ``vmtx`` entries. ``None`` = no vertical
+    metrics (the CJK font has none either)."""
+    vertical_top: int | None = None
+    """Top of the CJK ideographic em box: Western top side bearings are measured from it."""
 
     def __post_init__(self) -> None:
         if self.target_upm < 16 or self.target_upm > 16384:
