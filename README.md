@@ -5,6 +5,7 @@ Chinese/Japanese scripts from a **CJK font**.
 
 Design notes: [docs/design.md](docs/design.md) (architecture, module interfaces) and
 [docs/font-selection.md](docs/font-selection.md) (why Literata Light + Iansui, and the settings used).
+Planned: a browser version, see [docs/webapp-plan.md](docs/webapp-plan.md).
 
 ## Install
 
