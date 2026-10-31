@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python tests, lint, types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev,woff2,preview]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy
+      - run: pytest
+
+  browser:
+    name: Web app in Chromium (Pyodide)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e . pytest playwright
+      - run: python -m playwright install --with-deps chromium
+      - name: Build the site
+        run: python scripts/build_site.py --out _site
+      - name: Browser tests
+        env:
+          FONTMERGE_BROWSER: "1"
+          FONTMERGE_SITE: ${{ github.workspace }}/_site
+          FONTMERGE_BENCH_OUT: ${{ github.workspace }}/benchmark.json
+        run: pytest tests/browser -v -s -p no:cacheprovider -o addopts=""
+      - name: Benchmark summary
+        if: always()
+        run: |
+          {
+            echo "## Browser benchmark: Literata Light + Iansui"
+            echo
+            if [ -f benchmark.json ]; then
+              echo '```json'; cat benchmark.json; echo '```'
+            else
+              echo "No benchmark (the real-font test did not finish)."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: site-and-benchmark
+          path: |
+            _site
+            benchmark.json
+          if-no-files-found: ignore

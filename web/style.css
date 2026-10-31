@@ -1,0 +1,134 @@
+:root {
+  --bg: #ffffff;
+  --surface: #f6f6f4;
+  --text: #1b1b1b;
+  --muted: #5d5d5a;
+  --border: #d9d8d3;
+  --accent: #2f5d8a;
+  --accent-text: #ffffff;
+  --error-bg: #fdf0ee;
+  --error: #9c2b1f;
+  --warn: #8a5a00;
+  --radius: 8px;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161616;
+    --surface: #202020;
+    --text: #ececea;
+    --muted: #a3a29e;
+    --border: #3a3a38;
+    --accent: #7fb0e0;
+    --accent-text: #0f1b27;
+    --error-bg: #2c1a17;
+    --error: #f0a093;
+    --warn: #e2b55a;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", "PingFang TC", "Noto Sans TC",
+    "Microsoft JhengHei", sans-serif;
+}
+
+.top, main, footer { max-width: 880px; margin: 0 auto; padding: 0 16px; }
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-top: 32px;
+}
+
+h1 { margin: 0; font-size: 28px; letter-spacing: -0.01em; }
+h2 { font-size: 18px; margin: 0 0 12px; }
+h3 { font-size: 15px; margin: 20px 0 8px; }
+.tagline { margin: 4px 0 0; color: var(--muted); }
+.privacy { margin: 16px 0 24px; padding: 10px 14px; background: var(--surface); border-radius: var(--radius); }
+.note { color: var(--muted); font-size: 14px; margin: 24px 0; }
+
+button, .button {
+  font: inherit;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 14px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+.lang { white-space: nowrap; }
+.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+button:disabled { opacity: 0.55; cursor: progress; }
+
+.fonts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.drop {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  min-width: 0;
+}
+.drop:hover, .drop:focus-within { border-color: var(--accent); }
+.drop-title { font-weight: 600; }
+.drop-help { color: var(--muted); font-size: 14px; }
+.drop input { margin-top: 10px; max-width: 100%; }
+.file-name { font-size: 14px; overflow-wrap: anywhere; }
+
+.settings {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin: 20px 0;
+}
+.settings label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--muted); }
+.settings input, .settings select {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 9px;
+  min-width: 0;
+}
+
+.actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.status { margin: 0; color: var(--muted); }
+.status[data-state="error"] { color: var(--error); }
+
+.panel { margin-top: 24px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); }
+.panel.error { background: var(--error-bg); border-color: var(--error); color: var(--error); }
+.panel.error pre { white-space: pre-wrap; font-size: 12px; color: var(--text); max-height: 240px; overflow: auto; }
+.hint { color: var(--text); }
+
+.progress { margin: 0; padding-left: 20px; font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
+.stats div { background: var(--surface); border-radius: var(--radius); padding: 10px 12px; }
+.stats dt { font-size: 13px; color: var(--muted); }
+.stats dd { margin: 2px 0 0; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.issues { margin: 0; padding-left: 20px; font-size: 14px; }
+.issues .error { color: var(--error); }
+.issues .warning { color: var(--warn); }
+
+footer { color: var(--muted); font-size: 13px; padding-bottom: 32px; }
+
+@media (max-width: 640px) {
+  .fonts, .settings { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: 1fr 1fr; }
+  .top { padding-top: 20px; }
+}

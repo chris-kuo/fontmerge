@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>fontmerge</title>
+  <meta name="description" content="Merge a Western font and a Chinese/Japanese font into one font file, in your browser.">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1 data-i18n="title">fontmerge</h1>
+      <p class="tagline" data-i18n="tagline"></p>
+    </div>
+    <button id="lang" class="lang" type="button" data-i18n="language">中文</button>
+  </header>
+
+  <main>
+    <p class="privacy" data-i18n="privacy"></p>
+
+    <form id="form" novalidate>
+      <section class="fonts">
+        <label class="drop">
+          <span class="drop-title" data-i18n="westernFont"></span>
+          <span class="drop-help" data-i18n="westernHelp"></span>
+          <input id="western" name="western" type="file" accept=".ttf,.otf,.ttc,.otc,.woff,.woff2">
+          <span class="file-name" id="western-name" data-i18n="chooseFile"></span>
+        </label>
+        <label class="drop">
+          <span class="drop-title" data-i18n="cjkFont"></span>
+          <span class="drop-help" data-i18n="cjkHelp"></span>
+          <input id="cjk" name="cjk" type="file" accept=".ttf,.otf,.ttc,.otc,.woff,.woff2">
+          <span class="file-name" id="cjk-name" data-i18n="chooseFile"></span>
+        </label>
+      </section>
+
+      <section class="settings">
+        <label><span data-i18n="family"></span>
+          <input id="family" name="family" type="text" value="Merged" required maxlength="63">
+        </label>
+        <label><span data-i18n="style"></span>
+          <input id="style" name="style" type="text" value="Regular" maxlength="63">
+        </label>
+        <label><span data-i18n="scale"></span>
+          <input id="scale" name="scale" type="number" min="0.5" max="2" step="0.01" data-i18n-placeholder="scaleHelp">
+        </label>
+        <label><span data-i18n="lineHeight"></span>
+          <select id="line-height" name="lineHeight">
+            <option value="cjk" data-i18n="lineCjk"></option>
+            <option value="western" data-i18n="lineWestern"></option>
+            <option value="max" data-i18n="lineMax"></option>
+          </select>
+        </label>
+        <label><span data-i18n="cjkFace"></span>
+          <input id="cjk-face" name="cjkFace" type="text" data-i18n-placeholder="cjkFaceHelp">
+        </label>
+        <label><span data-i18n="format"></span>
+          <select id="format" name="format">
+            <option value="ttf" selected>TTF</option>
+            <option value="otf">OTF</option>
+          </select>
+        </label>
+      </section>
+
+      <div class="actions">
+        <button id="merge" class="primary" type="submit" data-i18n="merge"></button>
+        <p id="status" class="status" data-state="loading" role="status" aria-live="polite"></p>
+      </div>
+    </form>
+
+    <section id="progress-panel" class="panel" hidden>
+      <h2 data-i18n="progress"></h2>
+      <ol id="progress" class="progress"></ol>
+    </section>
+
+    <section id="error-panel" class="panel error" hidden>
+      <p id="error-message"></p>
+      <p id="error-hint" class="hint" hidden><strong data-i18n="hint"></strong>: <span></span></p>
+      <pre id="error-detail" hidden></pre>
+    </section>
+
+    <section id="result-panel" class="panel" hidden>
+      <h2 data-i18n="result"></h2>
+      <dl class="stats">
+        <div><dt data-i18n="glyphs"></dt><dd id="r-glyphs"></dd></div>
+        <div><dt data-i18n="characters"></dt><dd id="r-chars"></dd></div>
+        <div><dt data-i18n="time"></dt><dd id="r-time"></dd></div>
+        <div><dt data-i18n="memory"></dt><dd id="r-memory"></dd></div>
+      </dl>
+      <p><a id="download" class="primary button" data-i18n="download" href="#"></a> <span id="r-file"></span></p>
+      <h3 data-i18n="issues"></h3>
+      <ul id="issues" class="issues"></ul>
+    </section>
+
+    <p class="note" data-i18n="licenceNote"></p>
+  </main>
+
+  <footer id="footer"></footer>
+</body>
+</html>
