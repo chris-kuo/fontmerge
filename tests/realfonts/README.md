@@ -6,7 +6,7 @@ redistribution.
 
 | File | Role | Source | Licence |
 | --- | --- | --- | --- |
-| `AveriaSerifLibre-Regular.ttf` | Western | Dan Sayers | SIL OFL 1.1 (Reserved Font Names 'Averia', 'Averia Libre') |
+| `Literata-Light.ttf` | Western | The Literata Project Authors | SIL OFL 1.1 |
 | `Iansui-Regular.ttf` | CJK (Traditional Chinese) | Iansui project | SIL OFL 1.1 |
 
 To use a different folder, set `FONTMERGE_REAL_FONTS=/path/to/fonts`.

@@ -309,6 +309,18 @@ class NormalizePlan:
 
 
 @dataclass(frozen=True)
+class SubsetOptions:
+    layout_features: tuple[str, ...] = ("*",)
+    """OpenType features to keep; ``"*"`` = all (fontTools' default drops many, e.g. smcp)."""
+    keep_hinting: bool = False
+    """TrueType hinting is dropped by default: it would be wrong after scaling."""
+    keep_legacy_kern: bool = True
+    """Keep the old-style ``kern`` table (fontTools drops it by default)."""
+    drop_tables: tuple[str, ...] = ("STAT",)
+    """Extra tables to drop. STAT describes the source family's axes, which no longer apply."""
+
+
+@dataclass(frozen=True)
 class MergeOptions:
     base: Source = Source.CJK
     glyph_name_suffix: str = ".w"

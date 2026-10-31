@@ -259,19 +259,24 @@ def test_summarize_counts_rules() -> None:
 
 
 @pytest.fixture(scope="module")
-def real_plan(averia: Path, iansui: Path) -> tuple[FontProfile, FontProfile, AssignmentPlan]:
-    w = inspect_font(load_font(averia))
+def real_plan(literata: Path, iansui: Path) -> tuple[FontProfile, FontProfile, AssignmentPlan]:
+    w = inspect_font(load_font(literata))
     c = inspect_font(load_font(iansui))
     return w, c, build_plan(w, c, RoutingConfig())
 
 
 @pytest.mark.realfont
-def test_real_every_averia_character_comes_from_averia(
+def test_real_latin_from_literata(
     real_plan: tuple[FontProfile, FontProfile, AssignmentPlan],
 ) -> None:
     w, _, plan = real_plan
-    assert w.codepoints <= plan.western
-    assert plan.western == w.codepoints  # nothing falls back to Averia
+    pinyin = "āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü"
+    for ch in "AZaz09" + pinyin + "αΩжЯ€—“”…":
+        assert plan.source_of(ord(ch)) is W, ch
+    # Literata's arrows and geometric shapes go to Iansui (symbols=cjk); the rest is Latin.
+    not_western = w.codepoints - plan.western
+    assert not_western
+    assert all(0x2190 <= cp <= 0x25FF for cp in not_western)
 
 
 @pytest.mark.realfont
@@ -281,7 +286,7 @@ def test_real_cjk_from_iansui(
     _, c, plan = real_plan
     han = {cp for cp in c.codepoints if 0x4E00 <= cp <= 0x9FFF}
     assert han <= plan.cjk
-    for cp in (0x3001, 0x3002, 0x300C, 0x3042, 0x30A2, 0x3105, 0xFF0C):
+    for cp in (0x3001, 0x3002, 0x300C, 0x3042, 0x30A2, 0x3105, 0xFF0C, 0x2192, 0x25A0):
         assert plan.source_of(cp) is C, f"U+{cp:04X}"
     assert not plan.missing and not plan.excluded  # Iansui has no Hangul
 
@@ -291,8 +296,6 @@ def test_real_western_gaps_fall_back_to_iansui(
     real_plan: tuple[FontProfile, FontProfile, AssignmentPlan],
 ) -> None:
     _, _, plan = real_plan
-    fb = {d.codepoint for d in fallbacks(plan, C)}
-    assert 0x03B1 in fb  # Greek: Averia has none
-    assert 0x0430 in fb  # Cyrillic
-    assert 0x0101 in fb  # ā: pinyin tone mark not in Averia
-    assert 0x00E1 not in fb and plan.source_of(0x00E1) is W  # á is in Latin-1
+    fb = {chr(d.codepoint) for d in fallbacks(plan, C)}
+    assert {"ʃ", "Ⅻ", "∀", "℃"} <= fb  # IPA, Roman numerals, math, letterlike
+    assert not fb & set("āǎαж")  # pinyin, Greek and Cyrillic all come from Literata

@@ -5,6 +5,18 @@ Chinese/Japanese scripts from a **CJK font**.
 
 > Work in progress. Built in stages; see the status table below.
 
+## Target merge
+
+The first real merge this tool is being built for:
+
+| Role | Font | Notes |
+| --- | --- | --- |
+| Western | Literata Light | Stem weight matches Iansui; covers pinyin, Greek, Cyrillic |
+| CJK | Iansui Regular | Traditional Chinese, with kana and Bopomofo |
+
+Planned adjustment: scale Literata's glyphs to 96% (Stage 4) so its x-height
+(0.505 em) sits closer to Iansui's (0.468 em) while capitals stay close (0.673 vs 0.695 em).
+
 ## Development
 
 ```bash
@@ -27,10 +39,11 @@ src/fontmerge/
   inspector.py  read a FontProfile (UPM, coverage, metrics, em box, licence) + role checks
   unicode_ranges.py  Unicode blocks -> routing categories
   router.py     decide which font supplies each codepoint (AssignmentPlan)
+  subset.py     cut each font to its assigned codepoints, keeping feature-reachable glyphs
 tests/
   fontfactory.py   builds test fonts (Latin TTF, CJK OTF, TTC, variable)
   conftest.py      pytest fixtures for those fonts
-  realfonts/       real fonts for tests marked `realfont` (Averia Serif Libre, Iansui)
+  realfonts/       real fonts for tests marked `realfont` (Literata Light, Iansui)
 ```
 
 ## Stages
@@ -40,7 +53,7 @@ tests/
 | 0 | Scaffold, models, errors, test fonts | Done |
 | 1 | Loader, Inspector | Done |
 | 2 | Script Router | Done |
-| 3 | Subsetter | |
+| 3 | Subsetter | Done |
 | 4 | Normalizer | |
 | 5 | Merger, Metadata | |
 | 6 | Validator, Writer, Preview | |

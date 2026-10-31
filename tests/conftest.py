@@ -20,9 +20,9 @@ def _real_font(name: str) -> Path:
 
 
 @pytest.fixture(scope="session")
-def averia() -> Path:
-    """Western real font: Averia Serif Libre Regular."""
-    return _real_font("AveriaSerifLibre-Regular.ttf")
+def literata() -> Path:
+    """Western real font: Literata Light."""
+    return _real_font("Literata-Light.ttf")
 
 
 @pytest.fixture(scope="session")

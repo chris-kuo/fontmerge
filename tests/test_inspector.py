@@ -189,18 +189,19 @@ def test_unknown_license_is_info(latin_ttf: Path) -> None:
 
 
 @pytest.mark.realfont
-def test_averia_profile(averia: Path) -> None:
-    p = _profile(averia)
-    assert p.family_name == "Averia Serif Libre"
-    assert p.upm == 2048
+def test_literata_profile(literata: Path) -> None:
+    p = _profile(literata)
+    assert p.family_name == "Literata"  # typographic family (name ID 16)
+    assert p.upm == 1000
     assert p.outline == "glyf"
-    assert (p.x_height, p.cap_height) == (956, 1387)
+    assert (p.x_height, p.cap_height) == (505, 701)
     assert set(range(0x20, 0x7F)) <= p.codepoints  # all of printable ASCII
-    assert set(range(0xA0, 0x100)) <= p.codepoints  # all of Latin-1
-    assert not any(0x370 <= cp <= 0x4FF for cp in p.codepoints)  # no Greek or Cyrillic
-    assert p.features == frozenset()  # kerning is in the legacy 'kern' table, not GPOS
-    assert p.license.reserved_font_names == ("Averia", "Averia Libre")
-    assert not p.has_vertical_metrics
+    pinyin = "āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü"
+    assert {ord(ch) for ch in pinyin} <= p.codepoints
+    assert {"latn", "grek", "cyrl"} <= p.scripts
+    assert {"kern", "liga", "mark"} <= p.features
+    assert p.license.reserved_font_names == ()
+    assert p.has_vertical_metrics
 
 
 @pytest.mark.realfont
@@ -220,9 +221,7 @@ def test_iansui_profile(iansui: Path) -> None:
 
 
 @pytest.mark.realfont
-def test_real_fonts_fit_their_roles(averia: Path, iansui: Path) -> None:
-    g = check_profile(_profile(averia), Source.WESTERN)
+def test_real_fonts_fit_their_roles(literata: Path, iansui: Path) -> None:
+    g = check_profile(_profile(literata), Source.WESTERN)
     i = check_profile(_profile(iansui), Source.CJK)
-    assert not [x for x in g + i if x.severity is not Severity.INFO]
-    assert _codes(g) == ["license-reserved-names"]
-    assert i == []
+    assert g == [] and i == []

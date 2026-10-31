@@ -180,11 +180,13 @@ def build_latin_ttf(
     glyphs: Sequence[GlyphSpec] = LATIN_GLYPHS,
     extra_names: dict[str, str] | None = None,
     os2_overrides: dict[str, int] | None = None,
+    legacy_kern: dict[tuple[str, str], int] | None = None,
 ) -> Path:
     """Write a TrueType-flavoured Western test font and return its path.
 
     ``extra_names`` adds name-table entries (fontBuilder keys such as ``"copyright"``
-    or ``"licenseDescription"``); ``os2_overrides`` replaces OS/2 values.
+    or ``"licenseDescription"``); ``os2_overrides`` replaces OS/2 values;
+    ``legacy_kern`` adds an old-style ``kern`` table with these pairs.
     """
     fb = _new_builder(LATIN_UPM, glyphs, is_ttf=True)
     outlines = {}
@@ -210,8 +212,24 @@ def build_latin_ttf(
     fb.setupOS2(**(os2 | (os2_overrides or {})), achVendID="TEST")
     fb.setupPost()
     fb.addOpenTypeFeatures(LATIN_FEA)
+    if legacy_kern:
+        fb.font["kern"] = _legacy_kern_table(legacy_kern)
     fb.save(str(path))
     return path
+
+
+def _legacy_kern_table(pairs: dict[tuple[str, str], int]) -> object:
+    from fontTools.ttLib import newTable
+    from fontTools.ttLib.tables._k_e_r_n import KernTable_format_0
+
+    sub = KernTable_format_0()
+    sub.version = 0
+    sub.coverage = 1
+    sub.kernTable = dict(pairs)
+    table = newTable("kern")
+    table.version = 0
+    table.kernTables = [sub]
+    return table
 
 
 def build_cjk_otf(
