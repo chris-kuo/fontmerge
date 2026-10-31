@@ -122,7 +122,7 @@ def merge_fonts(base: TTFont, addition: TTFont, opts: MergeOptions) -> TTFont
 
 ### 8. Metadata Builder (`metadata.py`)
 
-Rewrites the tables that describe the font as a whole: the new family and style names in `name`, unique ID and version, and `OS/2` Unicode and code-page ranges. It sets line metrics that fit both scripts (`hhea`, `OS/2` typo/win) and uses the stricter of the two `fsType` embedding settings. It also records both source fonts and their licences in the name table. Whose line spacing to use is a setting: the CJK font's (default), the Western font's, or the larger of both.
+Rewrites the tables that describe the font as a whole: the new family and style names in `name`, unique ID and version, and `OS/2` Unicode and code-page ranges. It sets line metrics that fit both scripts (`hhea`, `OS/2` typo/win) and uses the stricter of the two `fsType` embedding settings. It also records both source fonts and their licences in the name table. Whose line spacing to use is a setting: the CJK font's (default), the Western font's, the average of both, or the larger of both.
 
 ```python
 def build_metadata(font: TTFont, w: FontProfile, c: FontProfile, cfg: NamingConfig) -> TTFont

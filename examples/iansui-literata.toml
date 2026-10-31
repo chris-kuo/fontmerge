@@ -27,4 +27,4 @@ include_hangul = false  # Iansui has none anyway
 western_scale = 0.96    # Literata x-height 0.505 -> 0.485 em, next to Iansui's 0.468
 
 [metrics]
-line_height = "cjk"     # Iansui's 1.12 em
+line_height = "cjk"     # Iansui's 1.12 em (or "western", "average", "max")

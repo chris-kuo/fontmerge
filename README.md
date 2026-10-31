@@ -55,7 +55,7 @@ fontmerge inspect NotoSansCJK.ttc --face "Noto Sans CJK JP"
 | `--scale 0.96` | `[normalize] western_scale` | automatic | Size of Western glyphs next to CJK |
 | `--baseline-shift N` | `[normalize] western_baseline_shift` | 0 | Move Western glyphs up/down |
 | `--outline` | `[normalize] target_outline` | the CJK font's | `glyf` (TrueType) or `CFF` |
-| `--line-height` | `[metrics] line_height` | `cjk` | `cjk`, `western` or `max` |
+| `--line-height` | `[metrics] line_height` | `cjk` | `cjk`, `western`, `average` or `max` |
 | `--punctuation` | `[routing] punctuation` | `split` | Who supplies quotes, dashes, middle dot |
 | `--symbols` | `[routing] symbols` | `cjk` | Who supplies arrows, boxes, shapes |
 | `--include-hangul` | `[routing] include_hangul` | off | Keep Korean from the CJK font |

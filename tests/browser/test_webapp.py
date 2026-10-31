@@ -71,6 +71,20 @@ def test_initial_controls(page: Page) -> None:
         assert page.is_disabled("#merge")
 
 
+def test_line_height_choices(page: Page) -> None:
+    options = page.locator("#line-height option")
+    assert options.evaluate_all("els => els.map(e => e.value)") == [
+        "cjk",
+        "western",
+        "average",
+        "max",
+    ]
+    assert page.input_value("#line-height") == "cjk"
+    assert page.text_content("#line-height option[value='average']") == "Average of both"
+    page.click("#lang")
+    assert page.text_content("#line-height option[value='average']") == "取兩者平均值"
+
+
 def test_more_settings(page: Page) -> None:
     assert page.is_hidden("#punctuation")
     page.click(".more summary")

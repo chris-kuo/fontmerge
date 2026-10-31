@@ -127,6 +127,9 @@ def test_line_metrics_modes(latin_ttf: Path, cjk_otf: Path) -> None:
     assert w_scaled == (round(1900 * 1000 / 2048 * 0.5), round(-500 * 1000 / 2048 * 0.5), 0)
     biggest = line_metrics(w, c, "max", 1000)
     assert biggest == (round(1900 * 1000 / 2048), -244, 0)
+    w_full = line_metrics(w, c, "western", 1000)
+    average = line_metrics(w, c, "average", 1000)
+    assert average == tuple(round((a + b) / 2) for a, b in zip((880, -120, 0), w_full, strict=True))
 
 
 # build_metadata on generated fonts ------------------------------------------------------

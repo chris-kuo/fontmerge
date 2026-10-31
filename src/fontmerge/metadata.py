@@ -233,6 +233,9 @@ def line_metrics(
         return c  # type: ignore[return-value]
     if mode == "western":
         return w  # type: ignore[return-value]
+    if mode == "average":
+        # each value halfway between the two fonts, so the line height is the average too
+        return round((c[0] + w[0]) / 2), round((c[1] + w[1]) / 2), round((c[2] + w[2]) / 2)
     return max(c[0], w[0]), min(c[1], w[1]), max(c[2], w[2])
 
 

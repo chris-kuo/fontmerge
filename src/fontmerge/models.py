@@ -130,7 +130,7 @@ class NamingConfig(_Frozen):
 
 
 class MetricsConfig(_Frozen):
-    line_height: Literal["cjk", "western", "max"] = "cjk"
+    line_height: Literal["cjk", "western", "max", "average"] = "cjk"
     """Whose line spacing the merged font uses: the CJK font's, the Western font's (after
     scaling), or the larger extents of both. Windows clipping metrics always cover every
     glyph, whatever this is set to."""

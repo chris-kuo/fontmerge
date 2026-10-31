@@ -90,7 +90,7 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--outline", choices=("auto", "glyf", "CFF"), help="output outline format")
     g.add_argument(
         "--line-height",
-        choices=("cjk", "western", "max"),
+        choices=("cjk", "western", "max", "average"),
         help="whose line spacing to use (default cjk)",
     )
     m.add_argument("-q", "--quiet", action="store_true", help="print only errors")
