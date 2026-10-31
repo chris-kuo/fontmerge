@@ -13,6 +13,7 @@ The first real merge this tool is being built for:
 | --- | --- | --- |
 | Western | Literata Light | Stem weight matches Iansui; covers pinyin, Greek, Cyrillic |
 | CJK | Iansui Regular | Traditional Chinese, with kana and Bopomofo |
+| Output | Iansui Literata Light | Line height from Iansui (940 / -180 / 0 = 1.12 em) |
 
 Adjustment: Literata's glyphs are scaled to 96% (`western_scale = 0.96`) so its
 x-height (0.505 em) sits closer to Iansui's (0.468 em) while capitals stay close
@@ -42,6 +43,8 @@ src/fontmerge/
   router.py     decide which font supplies each codepoint (AssignmentPlan)
   subset.py     cut each font to its assigned codepoints, keeping feature-reachable glyphs
   normalize.py  match UPM and outline format, scale/shift Western glyphs, add vertical metrics
+  merge.py      combine the fonts (CJK as base), rename clashing glyphs, convert legacy kern
+  metadata.py   names, line metrics, style bits, embedding, licence, OS/2 recalculation
 tests/
   fontfactory.py   builds test fonts (Latin TTF, CJK OTF, TTC, variable)
   conftest.py      pytest fixtures for those fonts
@@ -57,6 +60,6 @@ tests/
 | 2 | Script Router | Done |
 | 3 | Subsetter | Done |
 | 4 | Normalizer | Done |
-| 5 | Merger, Metadata | |
+| 5 | Merger, Metadata | Done |
 | 6 | Validator, Writer, Preview | |
 | 7 | Orchestrator, CLI | |

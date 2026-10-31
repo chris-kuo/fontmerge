@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -29,6 +30,42 @@ def literata() -> Path:
 def iansui() -> Path:
     """CJK real font: Iansui Regular (Traditional Chinese)."""
     return _real_font("Iansui-Regular.ttf")
+
+
+@pytest.fixture(scope="session")
+def real_merge(literata: Path, iansui: Path) -> dict[str, Any]:
+    """Literata Light + Iansui through every stage so far (slow: built once per session).
+
+    Settings are the target merge: Literata at 96%, Iansui's line height,
+    named "Iansui Literata Light".
+    """
+    from fontmerge.inspector import inspect_font
+    from fontmerge.loader import load_font
+    from fontmerge.merge import merge_fonts
+    from fontmerge.metadata import build_metadata
+    from fontmerge.models import MetricsConfig, NamingConfig, NormalizeConfig, RoutingConfig
+    from fontmerge.normalize import normalize, plan_normalization
+    from fontmerge.router import build_plan
+    from fontmerge.subset import subset_pair
+
+    w_src, c_src = load_font(literata), load_font(iansui)
+    w_prof, c_prof = inspect_font(w_src), inspect_font(c_src)
+    route = build_plan(w_prof, c_prof, RoutingConfig())
+    w, c = subset_pair(w_src, c_src, route)
+    plan = plan_normalization(w_prof, c_prof, NormalizeConfig(western_scale=0.96))
+    w, c = normalize(w, c, plan)
+    merged = merge_fonts(w, c)
+    naming = NamingConfig(family="Iansui Literata", style="Light")
+    build_metadata(merged, w_prof, c_prof, naming, MetricsConfig(), plan)
+    return {
+        "font": merged,
+        "western": w,
+        "cjk": c,
+        "route": route,
+        "plan": plan,
+        "w_prof": w_prof,
+        "c_prof": c_prof,
+    }
 
 
 @pytest.fixture(scope="session")

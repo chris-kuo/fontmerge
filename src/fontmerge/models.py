@@ -112,6 +112,13 @@ class NamingConfig(_Frozen):
     vendor_id: str = Field(default="NONE", min_length=1, max_length=4)
 
 
+class MetricsConfig(_Frozen):
+    line_height: Literal["cjk", "western", "max"] = "cjk"
+    """Whose line spacing the merged font uses: the CJK font's, the Western font's (after
+    scaling), or the larger extents of both. Windows clipping metrics always cover every
+    glyph, whatever this is set to."""
+
+
 OutputFormat = Literal["ttf", "otf", "woff2"]
 
 
@@ -145,6 +152,7 @@ class MergeConfig(_Frozen):
     naming: NamingConfig
     routing: RoutingConfig = RoutingConfig()
     normalize: NormalizeConfig = NormalizeConfig()
+    metrics: MetricsConfig = MetricsConfig()
 
 
 # --------------------------------------------------------------------------------------
@@ -326,8 +334,10 @@ class SubsetOptions:
 @dataclass(frozen=True)
 class MergeOptions:
     base: Source = Source.CJK
-    glyph_name_suffix: str = ".w"
-    """Appended to Western glyph names that clash with CJK glyph names."""
+    """The font whose whole-font tables (head, OS/2, BASE, vhea, gasp) the merge starts from."""
+    glyph_name_suffix: str = ".cjk"
+    """Appended to CJK glyph names that clash with Western glyph names, so the Western
+    glyphs keep their standard names (A, a, one)."""
 
 
 class Severity(StrEnum):
