@@ -1,11 +1,16 @@
 # fontmerge
 
+[![CI](https://github.com/chris-kuo/fontmerge/actions/workflows/ci.yml/badge.svg)](https://github.com/chris-kuo/fontmerge/actions/workflows/ci.yml)
+
+**Use it in your browser: <https://chris-kuo.github.io/fontmerge/>** (English and 繁體中文).
+Fonts are merged on your own device and never uploaded.
+
 Merge two fonts into one: Latin and other Western scripts from a **Western font**,
 Chinese/Japanese scripts from a **CJK font**.
 
 Design notes: [docs/design.md](docs/design.md) (architecture, module interfaces) and
 [docs/font-selection.md](docs/font-selection.md) (why Literata Light + Iansui, and the settings used).
-Planned: a browser version, see [docs/webapp-plan.md](docs/webapp-plan.md).
+Web app: [docs/webapp-plan.md](docs/webapp-plan.md) (how it runs in the browser, deployment).
 
 ## Install
 

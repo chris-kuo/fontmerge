@@ -88,16 +88,51 @@ def git_commit() -> str:
         return "dev"
 
 
+# Internal references that get a ?v=<token> suffix, so a new deploy never mixes freshly
+# fetched files with ones the browser still has cached (GitHub Pages caches ~10 minutes).
+_VERSIONED = {
+    "index.html": [
+        ('src="app.js"', 'src="app.js?v={v}"'),
+        ('href="style.css"', 'href="style.css?v={v}"'),
+    ],
+    "app.js": [('"./i18n.js"', '"./i18n.js?v={v}"'), ('"./worker.js"', '"./worker.js?v={v}"')],
+}
+
+
+def content_token(paths: list[Path]) -> str:
+    """Short hash of the given files' bytes: changes exactly when the site changes."""
+    digest = hashlib.sha256()
+    for path in sorted(paths):
+        digest.update(path.name.encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()[:10]
+
+
 def build_site(out: Path) -> Path:
     if out.exists():
         shutil.rmtree(out)
     shutil.copytree(WEB, out)
-    wheel = build_wheel(out / "wheels")
+    staging = build_wheel(out / "wheels")
+    token = content_token([*out.rglob("*.*")])
+    wheel_dir = out / "wheels" / token
+    wheel_dir.mkdir(parents=True)
+    wheel = staging.rename(wheel_dir / staging.name)
+
+    for name, replacements in _VERSIONED.items():
+        path = out / name
+        text = path.read_text(encoding="utf-8")
+        for old, new in replacements:
+            if old not in text:
+                raise SystemExit(f"build_site: expected {old!r} in web/{name}")
+            text = text.replace(old, new.format(v=token))
+        path.write_text(text, encoding="utf-8")
+
     build = {
         "version": __version__,
         "commit": git_commit(),
+        "token": token,
         "built": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "wheel": f"wheels/{wheel.name}",
+        "wheel": f"wheels/{token}/{wheel.name}",
     }
     (out / "build.json").write_text(json.dumps(build, indent=2) + "\n", encoding="utf-8")
     (out / ".nojekyll").write_text("", encoding="utf-8")  # serve files as they are on Pages

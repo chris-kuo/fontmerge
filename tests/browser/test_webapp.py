@@ -26,6 +26,7 @@ INSPECT_TIMEOUT_MS = 120_000
 # Page and language (no Python runtime needed) -------------------------------------------
 
 
+@pytest.mark.smoke
 def test_page_loads_in_english(page: Page) -> None:
     assert page.title() == "fontmerge"
     assert "never uploaded" in (page.text_content(".privacy") or "")
@@ -54,9 +55,12 @@ def test_language_toggle_is_remembered(open_page) -> None:  # type: ignore[no-un
     assert page.text_content("#merge") == "Merge fonts"
 
 
+@pytest.mark.smoke
 def test_footer_shows_build(page: Page) -> None:
     page.wait_for_function("document.getElementById('footer').textContent.includes('0.1.0')")
     assert "MIT" in (page.text_content("#footer") or "")
+    link = page.locator("#footer a")
+    assert link.get_attribute("href") == "https://github.com/chris-kuo/fontmerge"
 
 
 def test_initial_controls(page: Page) -> None:
@@ -129,6 +133,7 @@ def assert_same_font(a: TTFont, b: TTFont) -> None:
 # W1: merging ------------------------------------------------------------------------------
 
 
+@pytest.mark.smoke
 @pytest.mark.runtime
 def test_merge_matches_python(
     ready_page: Page, latin_ttf: Path, cjk_otf: Path, tmp_path: Path
@@ -396,6 +401,7 @@ def test_retry_after_runtime_failure(browser, site_url: str) -> None:  # type: i
     context.close()
 
 
+@pytest.mark.smoke
 @pytest.mark.runtime
 def test_preview_uses_the_merged_font(ready_page: Page, latin_ttf: Path, cjk_otf: Path) -> None:
     pick(ready_page, latin_ttf, cjk_otf)
@@ -453,6 +459,7 @@ def test_report_download(ready_page: Page, latin_ttf: Path, cjk_otf: Path, tmp_p
     assert any(i["code"] == "role-coverage" for i in data["issues"])
 
 
+@pytest.mark.smoke
 @pytest.mark.runtime
 def test_woff2_output(ready_page: Page, latin_ttf: Path, cjk_otf: Path, tmp_path: Path) -> None:
     pick(ready_page, latin_ttf, cjk_otf)

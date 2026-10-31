@@ -127,6 +127,7 @@ button:disabled { opacity: 0.55; cursor: progress; }
 
 
 footer { color: var(--muted); font-size: 13px; padding-bottom: 32px; }
+footer a { color: inherit; }
 
 @media (max-width: 640px) {
   .fonts, .settings { grid-template-columns: 1fr; }

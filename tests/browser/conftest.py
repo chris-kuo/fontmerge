@@ -2,6 +2,11 @@
 
 Skipped unless FONTMERGE_BROWSER=1. Tests marked ``runtime`` need to download Pyodide
 from the CDN, so they run in GitHub Actions; the others run anywhere Chromium does.
+
+Environment:
+  FONTMERGE_SITE      a prebuilt site folder to serve (default: build one)
+  FONTMERGE_SITE_URL  test an already running site instead, e.g. the live GitHub Pages URL
+  FONTMERGE_ENGINE    chromium (default), firefox or webkit
 """
 
 from __future__ import annotations
@@ -30,6 +35,7 @@ MERGE_TIMEOUT_MS = 15 * 60 * 1000  # a large CJK merge in WebAssembly
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "runtime: needs Pyodide from the CDN")
+    config.addinivalue_line("markers", "smoke: quick check of a deployed site")
 
 
 @pytest.fixture(scope="session")
@@ -50,7 +56,12 @@ class _QuietHandler(SimpleHTTPRequestHandler):
 
 
 @pytest.fixture(scope="session")
-def site_url(site_dir: Path) -> Iterator[str]:
+def site_url(request: pytest.FixtureRequest) -> Iterator[str]:
+    live = os.environ.get("FONTMERGE_SITE_URL")
+    if live:
+        yield live if live.endswith("/") else live + "/"
+        return
+    site_dir: Path = request.getfixturevalue("site_dir")
     handler = partial(_QuietHandler, directory=str(site_dir))
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -62,7 +73,8 @@ def site_url(site_dir: Path) -> Iterator[str]:
 @pytest.fixture(scope="session")
 def browser() -> Iterator[Browser]:
     with sync_playwright() as p:
-        b = p.chromium.launch()
+        engine = os.environ.get("FONTMERGE_ENGINE", "chromium")
+        b = getattr(p, engine).launch()
         yield b
         b.close()
 

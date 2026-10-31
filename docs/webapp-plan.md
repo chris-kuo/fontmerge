@@ -81,7 +81,8 @@ src/fontmerge/web.py
 tests/test_web.py           pytest for the adapter (CPython)
 tests/browser/              Playwright end-to-end tests (run in CI)
 .github/workflows/ci.yml    tests, lint, type check on every push and pull request
-.github/workflows/pages.yml build the wheel, assemble the site, deploy to GitHub Pages
+.github/workflows/ci.yml     also builds the site and deploys it to GitHub Pages (main only)
+.github/workflows/live-check.yml  weekly smoke test of the live site in 3 browser engines
 ```
 
 ## The page
@@ -109,7 +110,7 @@ the development workspace cannot reach the Pyodide CDN.
 | **W1. Proof of concept** | `web.py` adapter; a bare page and worker that run `merge_bytes` on two picked files and offer the result for download; `ci.yml` | pytest for `web.py`; a Playwright test in CI that merges the generated test fonts in headless Chromium and checks the output with fontTools; timing and peak memory for Literata Light + Iansui | The browser output matches the CLI output (same glyphs, characters and metrics), and the real merge time and memory are known |
 | **W2. Inputs and settings** | Font pickers, Inspector summaries, `.ttc` face menu, settings form with automatic scale, Reserved Font Name check, progress display, cancel | pytest for `inspect_bytes`; Playwright: pick fonts, see summaries, choose a face, change settings, see progress | Every CLI option that matters for a merge can be set from the page |
 | **W3. Results** | Live preview (horizontal, vertical, editable text and size), report view, downloads (TTF/OTF, WOFF2, report JSON), light/dark theme, error messages with hints | Playwright: run a merge, preview uses the merged font, downloads open in fontTools, an error case shows its hint | A full merge can be done and checked without leaving the page |
-| **W4. Public deployment** | `pages.yml`, GitHub Pages switched on, README link and badge, live-site smoke test | The deploy workflow runs the browser tests before publishing; a scheduled test checks the live site weekly | The site is live and a merge works there in Chrome, Firefox and Safari (desktop) |
+| **W4. Public deployment** | Deploy job in `ci.yml`, GitHub Pages switched on, README link and badge, live-site smoke test | The deploy workflow runs the browser tests before publishing; a scheduled test checks the live site weekly | The site is live and a merge works there in Chrome, Firefox and Safari (desktop) |
 
 ## W1 results (Oct 30, 2026)
 

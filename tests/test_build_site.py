@@ -78,3 +78,26 @@ def test_every_ui_string_is_translated() -> None:
     html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
     used = set(re.findall(r'data-i18n(?:-placeholder|-title)?="(\w+)"', html))
     assert used <= en_keys, used - en_keys
+
+
+def test_cache_busting_references(tmp_path: Path) -> None:
+    out = build_site.build_site(tmp_path / "site")
+    build = json.loads((out / "build.json").read_text())
+    token = build["token"]
+    assert len(token) == 10
+    assert build["wheel"] == f"wheels/{token}/fontmerge-0.1.0-py3-none-any.whl"
+    html = (out / "index.html").read_text(encoding="utf-8")
+    assert f'src="app.js?v={token}"' in html and f'href="style.css?v={token}"' in html
+    app = (out / "app.js").read_text(encoding="utf-8")
+    assert f'"./i18n.js?v={token}"' in app and f'"./worker.js?v={token}"' in app
+    # the sources in web/ stay untouched
+    assert '"./worker.js"' in (ROOT / "web" / "app.js").read_text(encoding="utf-8")
+
+
+def test_token_changes_with_content(tmp_path: Path) -> None:
+    a = tmp_path / "a.txt"
+    a.write_text("one")
+    first = build_site.content_token([a])
+    assert build_site.content_token([a]) == first
+    a.write_text("two")
+    assert build_site.content_token([a]) != first

@@ -652,6 +652,8 @@ setPreviewSize();
 
 // --- language and footer -----------------------------------------------------------
 
+const REPO_URL = "https://github.com/chris-kuo/fontmerge";
+
 function renderLanguage() {
   applyLanguage(state.lang);
   const status = $("status");
@@ -670,7 +672,13 @@ function renderLanguage() {
   const errorTitleEl = $("error-title");
   if (errorTitleEl.dataset.kind) errorTitleEl.textContent = errorTitle(state.lang, errorTitleEl.dataset.kind);
   updateButtons();
-  $("footer").textContent = t(state.lang, "footer", { version: state.build.version, commit: state.build.commit });
+  const source = document.createElement("a");
+  source.href = REPO_URL;
+  source.textContent = t(state.lang, "footerSource");
+  $("footer").replaceChildren(
+    t(state.lang, "footer", { version: state.build.version, commit: state.build.commit }) + " · ",
+    source,
+  );
 }
 
 $("lang").addEventListener("click", () => {
