@@ -137,6 +137,17 @@ For Literata Light + Iansui the page suggests "Iansui Literata", "Light", 0.96 b
 Browser merge time on this run: 39.0 s (native 20.8 s on the same runner; shared CI
 runners vary by about ±30% between runs).
 
+## W3 results (Oct 31, 2026)
+
+Results are done: live preview in the merged font (horizontal and vertical, editable text,
+size slider, missing characters underlined and listed), the validation report grouped by
+severity and translated from each issue's numbers (`Issue.params`), downloads (TTF, OTF or
+WOFF2, plus the report JSON), translated error titles with hints, "Try again" when the
+runtime fails to load, and a bug-report link for unexpected errors. CI: 29 browser tests
+pass. Browser merge for Literata Light + Iansui: 53.3 s (native 29.8 s), 322 MB.
+
+Still open: checking large merges on a phone, which needs the public site (W4).
+
 ## Public deployment plan
 
 **Host: GitHub Pages**, built and published by a GitHub Actions workflow from the public repo.
