@@ -11,3 +11,6 @@ build/
 dist/
 /_site/
 benchmark.json
+mypy.log
+pytest.log
+browser.log

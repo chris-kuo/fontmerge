@@ -354,7 +354,7 @@ def _check_names(font: TTFont, issues: list[Issue]) -> None:
 
 def _check_ots(font: TTFont, issues: list[Issue]) -> None:
     try:
-        import ots  # type: ignore[import-not-found]
+        import ots
     except ImportError:
         issues.append(
             Issue(

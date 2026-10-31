@@ -26,8 +26,17 @@ jobs:
       - run: pip install -e ".[dev,woff2,preview]"
       - run: ruff check .
       - run: ruff format --check .
-      - run: mypy
-      - run: pytest
+      - name: mypy
+        run: |
+          set -o pipefail
+          mypy 2>&1 | tee mypy.log || { python scripts/annotate.py mypy mypy.log; exit 1; }
+      - name: pytest
+        run: |
+          set -o pipefail
+          status=0
+          pytest -rA --tb=short 2>&1 | tee pytest.log || status=$?
+          python scripts/annotate.py pytest pytest.log
+          exit $status
 
   browser:
     name: Web app in Chromium (Pyodide)
@@ -48,7 +57,14 @@ jobs:
           FONTMERGE_BROWSER: "1"
           FONTMERGE_SITE: ${{ github.workspace }}/_site
           FONTMERGE_BENCH_OUT: ${{ github.workspace }}/benchmark.json
-        run: pytest tests/browser -v -s -p no:cacheprovider -o addopts=""
+        run: |
+          set -o pipefail
+          status=0
+          pytest tests/browser -v -s -rA --tb=short -p no:cacheprovider -o addopts="" 2>&1 \
+            | tee browser.log || status=$?
+          python scripts/annotate.py pytest browser.log
+          python scripts/annotate.py benchmark benchmark.json
+          exit $status
       - name: Benchmark summary
         if: always()
         run: |

@@ -23,7 +23,7 @@ from fontmerge.validate import format_report
 
 def woff2_available() -> bool:
     try:
-        import brotli  # type: ignore[import-not-found]  # noqa: F401
+        import brotli  # noqa: F401
     except ImportError:
         return False
     return True

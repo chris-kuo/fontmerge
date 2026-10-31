@@ -57,6 +57,11 @@ module = ["fontTools.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+# Optional extras without type information; present in CI, absent in some dev setups.
+module = ["brotli", "ots"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["PIL", "PIL.*"]
 follow_imports = "skip"
 ignore_missing_imports = true
