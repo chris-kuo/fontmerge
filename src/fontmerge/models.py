@@ -71,12 +71,29 @@ class PunctuationPolicy(StrEnum):
     CJK = "cjk"
 
 
+def parse_codepoint(value: object) -> object:
+    """Accept ``0x2018``, ``8216`` or ``"U+2018"`` / ``"2018"`` (hex) for a codepoint."""
+    if isinstance(value, str):
+        text = value.strip().upper()
+        text = text[2:] if text.startswith(("U+", "0X")) else text
+        try:
+            return int(text, 16)
+        except ValueError:
+            raise ValueError(f"{value!r} is not a codepoint (use e.g. U+2018)") from None
+    return value
+
+
 class RangeOverride(_Frozen):
     """Force an inclusive codepoint range to a source font."""
 
     start: int = Field(ge=0, le=MAX_CODEPOINT)
     end: int = Field(ge=0, le=MAX_CODEPOINT)
     source: Source
+
+    @field_validator("start", "end", mode="before")
+    @classmethod
+    def _codepoint(cls, v: object) -> object:
+        return parse_codepoint(v)
 
     @model_validator(mode="after")
     def _ordered(self) -> RangeOverride:
@@ -127,7 +144,8 @@ class OutputConfig(_Frozen):
     formats: tuple[OutputFormat, ...] = ()
     """Extra formats to write. Empty = infer one format from ``path``'s suffix."""
     write_report: bool = True
-    preview: bool = False
+    preview: Literal["html", "png"] | None = None
+    """Also write a preview sheet next to the font."""
     strict: bool = False
 
     @field_validator("path")

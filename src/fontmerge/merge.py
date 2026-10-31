@@ -7,7 +7,8 @@ other tables. Before merging, this module:
 * turns a legacy ``kern`` table into GPOS kerning when the font has no GPOS (apps
   ignore ``kern`` once GPOS exists), or drops it when GPOS is already there;
 * renames CJK glyphs whose names clash with Western ones (``A`` -> ``A.cjk``), so the
-  Western glyphs keep their standard names.
+  Western glyphs keep their standard names. Only the name-holding tables are rewritten;
+  the rest are copied as compiled bytes, which keeps this fast on 20,000-glyph fonts.
 
 The base font (CJK by default) goes first, so its whole-font tables (head, OS/2, BASE,
 vhea, gasp) are the starting point. The Metadata Builder rewrites the font-wide values
@@ -40,24 +41,21 @@ def merge_fonts(western: TTFont, cjk: TTFont, opts: MergeOptions | None = None) 
 
     legacy_kern_to_gpos(western)
     legacy_kern_to_gpos(cjk)
-    cjk = rename_glyphs(cjk, clash_renames(western, cjk, opts.glyph_name_suffix))
-
-    fonts = [cjk, western] if opts.base is Source.CJK else [western, cjk]
+    renames = clash_renames(western, cjk, opts.glyph_name_suffix)
     with tempfile.TemporaryDirectory(prefix="fontmerge-") as tmp:
-        paths = []
-        for i, font in enumerate(fonts):
-            path = Path(tmp) / f"part{i}.ttf"
-            font.save(str(path))
-            paths.append(str(path))
+        w_path, c_path = Path(tmp) / "western.ttf", Path(tmp) / "cjk.ttf"
+        western.save(str(w_path))
+        cjk.save(str(c_path))
+        if renames:
+            renamed = Path(tmp) / "cjk-renamed.ttf"
+            renamed.write_bytes(_renamed_bytes(c_path.read_bytes(), renames))
+            c_path = renamed
+        paths = [c_path, w_path] if opts.base is Source.CJK else [w_path, c_path]
         try:
-            merged = Merger(options=MergerOptions()).merge(paths)
+            merged = Merger(options=MergerOptions()).merge([str(p) for p in paths])
         except Exception as e:  # fontTools raises many types; report one
             raise MergeFailedError(f"fontTools could not merge the fonts: {e}") from e
-        # Decompile everything while the temp files still exist.
-        buf = BytesIO()
-        merged.save(buf)
-    buf.seek(0)
-    merged = TTFont(buf)
+        merged.ensureDecompiled()  # read everything while the temp files still exist
 
     expected = set(western.getBestCmap() or {}) | set(cjk.getBestCmap() or {})
     got = set(merged.getBestCmap() or {})
@@ -88,26 +86,34 @@ def clash_renames(western: TTFont, cjk: TTFont, suffix: str) -> dict[str, str]:
 
 
 def rename_glyphs(font: TTFont, renames: dict[str, str]) -> TTFont:
-    """Return a copy of ``font`` with glyphs renamed everywhere they are referenced.
-
-    Works by reloading the font and changing its glyph order before any table that
-    refers to glyphs is decompiled, so every table picks up the new names.
-    """
+    """Return a copy of ``font`` with glyphs renamed everywhere they are referenced."""
     if not renames:
         return font
     buf = BytesIO()
     font.save(buf)
-    buf.seek(0)
-    out = TTFont(buf)
-    order = [renames.get(n, n) for n in out.getGlyphOrder()]
-    if "CFF " in out:
-        top = out["CFF "].cff.topDictIndex[0]
+    return TTFont(BytesIO(_renamed_bytes(buf.getvalue(), renames)))
+
+
+def _renamed_bytes(data: bytes, renames: dict[str, str]) -> bytes:
+    """Rename glyphs in a compiled font, cheaply.
+
+    Tables refer to glyphs by number, so only the tables that store names (post, or
+    the CFF charset) change. The font is reopened lazily and its glyph order replaced
+    before anything else is read; every other table is copied byte for byte on save.
+    """
+    font = TTFont(BytesIO(data), lazy=True)
+    order = [renames.get(n, n) for n in font.getGlyphOrder()]
+    if "CFF " in font:
+        top = font["CFF "].cff.topDictIndex[0]
         cs = top.CharStrings
         cs.charStrings = {renames.get(k, k): v for k, v in cs.charStrings.items()}
         top.charset = order
-    out.setGlyphOrder(order)
-    out.ensureDecompiled()  # decompile every table now, under the new names
-    return out
+    font.setGlyphOrder(order)
+    if "post" in font:
+        font["post"].glyphOrder = order
+    out = BytesIO()
+    font.save(out)
+    return out.getvalue()
 
 
 def legacy_kern_to_gpos(font: TTFont) -> None:

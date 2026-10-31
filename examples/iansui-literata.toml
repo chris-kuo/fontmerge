@@ -1,0 +1,30 @@
+# Iansui Literata Light: Literata Light for Western scripts, Iansui for Chinese/Japanese.
+# Run from the repository root:
+#   python -m fontmerge -c examples/iansui-literata.toml
+# Paths are relative to this file.
+
+[western]
+path = "../tests/realfonts/Literata-Light.ttf"
+
+[cjk]
+path = "../tests/realfonts/Iansui-Regular.ttf"
+
+[output]
+path = "../out/IansuiLiterata-Light.ttf"
+preview = "html"
+
+[naming]
+family = "Iansui Literata"
+style = "Light"
+version = "1.000"
+
+[routing]
+punctuation = "split"   # ASCII quotes/dashes from Literata, full-width forms from Iansui
+symbols = "cjk"         # arrows, boxes and shapes from Iansui
+include_hangul = false  # Iansui has none anyway
+
+[normalize]
+western_scale = 0.96    # Literata x-height 0.505 -> 0.485 em, next to Iansui's 0.468
+
+[metrics]
+line_height = "cjk"     # Iansui's 1.12 em

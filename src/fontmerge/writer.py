@@ -72,10 +72,16 @@ def write_outputs(font: TTFont, report: ValidationReport, cfg: OutputConfig) -> 
         written.append(path)
 
     if cfg.write_report:
-        rp = report_path(cfg)
-        _atomic_write(rp, json.dumps(report_to_dict(report), indent=2).encode())
-        written.append(rp)
+        written.append(write_report(report, cfg))
     return written
+
+
+def write_report(report: ValidationReport, cfg: OutputConfig) -> Path:
+    """Write only the JSON report (used when the font itself is refused)."""
+    rp = report_path(cfg)
+    rp.parent.mkdir(parents=True, exist_ok=True)
+    _atomic_write(rp, json.dumps(report_to_dict(report), indent=2).encode())
+    return rp
 
 
 def report_to_dict(report: ValidationReport) -> dict[str, Any]:
