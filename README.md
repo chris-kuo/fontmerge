@@ -3,6 +3,9 @@
 Merge two fonts into one: Latin and other Western scripts from a **Western font**,
 Chinese/Japanese scripts from a **CJK font**.
 
+Design notes: [docs/design.md](docs/design.md) (architecture, module interfaces) and
+[docs/font-selection.md](docs/font-selection.md) (why Literata Light + Iansui, and the settings used).
+
 ## Install
 
 ```bash
