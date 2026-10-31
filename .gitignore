@@ -8,3 +8,8 @@ dist/
 build/
 *.egg-info/
 /out/
+
+# Real fonts used by tests marked "realfont" (not committed; see tests/realfonts/README.md)
+tests/realfonts/*.ttf
+tests/realfonts/*.otf
+tests/realfonts/*.ttc

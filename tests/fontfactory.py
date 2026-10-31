@@ -49,14 +49,32 @@ LATIN_CAP_HEIGHT = 1456
 LATIN_ASCENDER = 1900
 LATIN_DESCENDER = -500
 
+_UPPER = tuple(
+    GlyphSpec(chr(cp), cp, 1300, (40, 0, 1260, LATIN_CAP_HEIGHT)) for cp in range(0x41, 0x5B)
+)
+# Lowercase: x-height boxes, except a few with ascenders or descenders.
+_ASCENDERS = set("bdfhklt")
+_DESCENDERS = set("gjpqy")
+_LOWER = tuple(
+    GlyphSpec(
+        chr(cp),
+        cp,
+        1100,
+        (
+            60,
+            -450 if chr(cp) in _DESCENDERS else 0,
+            1040,
+            1556 if chr(cp) in _ASCENDERS else LATIN_X_HEIGHT,
+        ),
+    )
+    for cp in range(0x61, 0x7B)
+)
+
 LATIN_GLYPHS: tuple[GlyphSpec, ...] = (
     GlyphSpec(".notdef", None, 1200, (100, 0, 1100, 1456)),
     GlyphSpec("space", 0x0020, 520, None),
-    GlyphSpec("A", 0x0041, 1340, (20, 0, 1320, LATIN_CAP_HEIGHT)),
-    GlyphSpec("B", 0x0042, 1280, (150, 0, 1180, LATIN_CAP_HEIGHT)),
-    GlyphSpec("a", 0x0061, 1100, (90, -20, 1000, LATIN_X_HEIGHT)),
-    GlyphSpec("b", 0x0062, 1150, (130, -20, 1060, 1556)),
-    GlyphSpec("x", 0x0078, 1040, (20, 0, 1020, LATIN_X_HEIGHT)),
+    *_UPPER,
+    *_LOWER,
     GlyphSpec("one", 0x0031, 1150, (200, 0, 900, LATIN_CAP_HEIGHT)),
     GlyphSpec("hyphen", 0x002D, 700, (100, 500, 600, 640)),
     GlyphSpec("quoteleft", 0x2018, 500, (120, 1100, 380, 1456)),
@@ -71,7 +89,7 @@ languagesystem DFLT dflt;
 languagesystem latn dflt;
 feature kern {
     pos A B -60;
-    pos a x -20;
+    pos a b -20;
 } kern;
 """
 
@@ -142,9 +160,9 @@ def _hmtx(glyphs: Sequence[GlyphSpec]) -> dict[str, tuple[int, int]]:
     return {g.name: (g.advance, g.box[0] if g.box else 0) for g in glyphs}
 
 
-def _names(family: str, style: str) -> dict[str, str]:
+def _names(family: str, style: str, extra: dict[str, str] | None = None) -> dict[str, str]:
     ps = f"{family.replace(' ', '')}-{style}"
-    return {
+    return (extra or {}) | {
         "familyName": family,
         "styleName": style,
         "uniqueFontIdentifier": f"fontmerge-test:{ps}",
@@ -160,8 +178,14 @@ def build_latin_ttf(
     family: str = "Test Latin",
     fs_type: int = 0,
     glyphs: Sequence[GlyphSpec] = LATIN_GLYPHS,
+    extra_names: dict[str, str] | None = None,
+    os2_overrides: dict[str, int] | None = None,
 ) -> Path:
-    """Write a TrueType-flavoured Western test font and return its path."""
+    """Write a TrueType-flavoured Western test font and return its path.
+
+    ``extra_names`` adds name-table entries (fontBuilder keys such as ``"copyright"``
+    or ``"licenseDescription"``); ``os2_overrides`` replaces OS/2 values.
+    """
     fb = _new_builder(LATIN_UPM, glyphs, is_ttf=True)
     outlines = {}
     for g in glyphs:
@@ -172,18 +196,18 @@ def build_latin_ttf(
     fb.setupGlyf(outlines)
     fb.setupHorizontalMetrics(_hmtx(glyphs))
     fb.setupHorizontalHeader(ascent=LATIN_ASCENDER, descent=LATIN_DESCENDER)
-    fb.setupNameTable(_names(family, "Regular"))
-    fb.setupOS2(
-        sTypoAscender=LATIN_ASCENDER,
-        sTypoDescender=LATIN_DESCENDER,
-        sTypoLineGap=0,
-        usWinAscent=LATIN_ASCENDER,
-        usWinDescent=-LATIN_DESCENDER,
-        sxHeight=LATIN_X_HEIGHT,
-        sCapHeight=LATIN_CAP_HEIGHT,
-        fsType=fs_type,
-        achVendID="TEST",
-    )
+    fb.setupNameTable(_names(family, "Regular", extra_names))
+    os2 = {
+        "sTypoAscender": LATIN_ASCENDER,
+        "sTypoDescender": LATIN_DESCENDER,
+        "sTypoLineGap": 0,
+        "usWinAscent": LATIN_ASCENDER,
+        "usWinDescent": -LATIN_DESCENDER,
+        "sxHeight": LATIN_X_HEIGHT,
+        "sCapHeight": LATIN_CAP_HEIGHT,
+        "fsType": fs_type,
+    }
+    fb.setupOS2(**(os2 | (os2_overrides or {})), achVendID="TEST")
     fb.setupPost()
     fb.addOpenTypeFeatures(LATIN_FEA)
     fb.save(str(path))

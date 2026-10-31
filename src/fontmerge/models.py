@@ -146,6 +146,29 @@ class MergeConfig(_Frozen):
 # --------------------------------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class FaceInfo:
+    """Names of one face in a font file; a collection has several."""
+
+    index: int
+    family: str
+    subfamily: str
+    full_name: str
+    postscript_name: str
+    typographic_family: str | None = None
+
+    def matches(self, name: str) -> bool:
+        """Case-insensitive match against any of this face's names."""
+        wanted = name.strip().casefold()
+        candidates = (
+            self.family,
+            self.full_name,
+            self.postscript_name,
+            self.typographic_family,
+        )
+        return any(c and c.casefold() == wanted for c in candidates)
+
+
 @dataclass(frozen=True, eq=False)
 class FontSource:
     """A loaded font face. Produced by the Loader."""
@@ -155,27 +178,65 @@ class FontSource:
     ttfont: TTFont
     outline: OutlineFormat
     is_variable: bool
+    is_collection: bool = False
+    face: FaceInfo | None = None
+
+
+@dataclass(frozen=True)
+class VerticalMetrics:
+    """The three sets of line metrics a font carries (hhea, OS/2 typo, OS/2 win)."""
+
+    hhea_ascender: int
+    hhea_descender: int
+    hhea_line_gap: int
+    typo_ascender: int
+    typo_descender: int
+    typo_line_gap: int
+    win_ascent: int
+    win_descent: int
+    """Positive distance below the baseline, as stored in OS/2."""
+    use_typo_metrics: bool
+    """OS/2 fsSelection bit 7: apps should use the typo values for line spacing."""
+
+    @property
+    def line_height(self) -> int:
+        """Default line height apps will use (typo if flagged, else hhea)."""
+        if self.use_typo_metrics:
+            return self.typo_ascender - self.typo_descender + self.typo_line_gap
+        return self.hhea_ascender - self.hhea_descender + self.hhea_line_gap
+
+
+@dataclass(frozen=True)
+class LicenseInfo:
+    copyright: str | None
+    license: str | None
+    license_url: str | None
+    reserved_font_names: tuple[str, ...] = ()
+    """OFL Reserved Font Names: a modified font must not use these in its name."""
 
 
 @dataclass(frozen=True)
 class FontProfile:
     """Read-only facts about a font. Produced by the Inspector."""
 
+    family_name: str
     upm: int
     glyph_count: int
     codepoints: frozenset[int]
     outline: OutlineFormat
-    ascender: int
-    descender: int
-    line_gap: int
+    metrics: VerticalMetrics
     x_height: int | None
     cap_height: int | None
     ideo_embox: tuple[int, int] | None
     """(bottom, top) of the ideographic em box, in font units, when known."""
+    ideo_char_face: tuple[int, int] | None
+    """(bottom, top) of the ideographic character face (BASE icfb/icft), when known."""
     has_vertical_metrics: bool
     features: frozenset[str]
+    scripts: frozenset[str]
+    """OpenType script tags in GSUB/GPOS (e.g. ``latn``, ``hani``)."""
     fs_type: int
-    family_name: str
+    license: LicenseInfo
 
 
 @dataclass(frozen=True)

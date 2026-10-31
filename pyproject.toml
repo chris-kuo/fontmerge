@@ -30,6 +30,7 @@ packages = ["src/fontmerge"]
 testpaths = ["tests"]
 pythonpath = ["src", "tests"]
 addopts = "-q"
+markers = ["realfont: uses real fonts from tests/realfonts (skipped when missing)"]
 
 [tool.ruff]
 line-length = 100

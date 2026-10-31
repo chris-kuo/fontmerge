@@ -21,11 +21,14 @@ checked in.
 
 ```
 src/fontmerge/
-  models.py    shared data models (config + runtime contracts between modules)
-  errors.py    error types, each with a user-facing hint
+  models.py     shared data models (config + runtime contracts between modules)
+  errors.py     error types, each with a user-facing hint
+  loader.py     open TTF/OTF/WOFF/TTC, pick a collection face, reject variable fonts
+  inspector.py  read a FontProfile (UPM, coverage, metrics, em box, licence) + role checks
 tests/
   fontfactory.py   builds test fonts (Latin TTF, CJK OTF, TTC, variable)
   conftest.py      pytest fixtures for those fonts
+  realfonts/       real fonts for tests marked `realfont` (not committed; see its README)
 ```
 
 ## Stages
@@ -33,7 +36,7 @@ tests/
 | Stage | Modules | Status |
 | --- | --- | --- |
 | 0 | Scaffold, models, errors, test fonts | Done |
-| 1 | Loader, Inspector | |
+| 1 | Loader, Inspector | Done |
 | 2 | Script Router | |
 | 3 | Subsetter | |
 | 4 | Normalizer | |

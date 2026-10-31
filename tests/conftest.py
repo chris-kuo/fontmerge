@@ -2,11 +2,33 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
 
 from fontfactory import build_cjk_otf, build_latin_ttf, build_ttc, build_variable_ttf
+
+REAL_FONTS = Path(os.environ.get("FONTMERGE_REAL_FONTS", Path(__file__).parent / "realfonts"))
+
+
+def _real_font(name: str) -> Path:
+    path = REAL_FONTS / name
+    if not path.exists():
+        pytest.skip(f"real font {name} not found in {REAL_FONTS}")
+    return path
+
+
+@pytest.fixture(scope="session")
+def gentium() -> Path:
+    """Western real font: Gentium Book Plus Regular."""
+    return _real_font("GentiumBookPlus-Regular.ttf")
+
+
+@pytest.fixture(scope="session")
+def iansui() -> Path:
+    """CJK real font: Iansui Regular (Traditional Chinese)."""
+    return _real_font("Iansui-Regular.ttf")
 
 
 @pytest.fixture(scope="session")
