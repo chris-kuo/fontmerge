@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fontmerge"
+version = "0.1.0"
+description = "Merge a Western font and a CJK font into one font file"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Chris Kuo" }]
+dependencies = [
+    "fonttools>=4.50",
+    "pydantic>=2.5",
+]
+
+[project.optional-dependencies]
+woff2 = ["brotli>=1.1"]
+dev = [
+    "pytest>=8",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fontmerge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["fontmerge"]
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["fontTools.*"]
+ignore_missing_imports = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["fontmerge", "fontfactory"]
