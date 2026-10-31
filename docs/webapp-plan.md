@@ -111,6 +111,23 @@ the development workspace cannot reach the Pyodide CDN.
 | **W3. Results** | Live preview (horizontal, vertical, editable text and size), report view, downloads (TTF/OTF, WOFF2, report JSON), light/dark theme, error messages with hints | Playwright: run a merge, preview uses the merged font, downloads open in fontTools, an error case shows its hint | A full merge can be done and checked without leaving the page |
 | **W4. Public deployment** | `pages.yml`, GitHub Pages switched on, README link and badge, live-site smoke test | The deploy workflow runs the browser tests before publishing; a scheduled test checks the live site weekly | The site is live and a merge works there in Chrome, Firefox and Safari (desktop) |
 
+## W1 results (Oct 30, 2026)
+
+Measured in GitHub Actions (ubuntu-latest, headless Chromium, Pyodide 314.0.5) on
+Literata Light + Iansui with the example settings:
+
+| Measure | Result |
+| --- | --- |
+| Merge time in the browser | 52.9 s |
+| Same merge, native Python on the same runner | 28.6 s (about 1.85× faster) |
+| WebAssembly memory after the merge | 322 MB |
+| Output | 9.1 MB, 16,157 glyphs; same glyph order, characters, widths, metrics and names as the Python output |
+| Browser tests | 11 passed (page and language, merge vs Python, error with hint, collection face, Chinese progress, real-font benchmark) |
+
+The first visit also downloads Pyodide and its packages once; later visits use the
+browser cache. 322 MB is comfortable on desktop browsers; phones remain a risk for large
+CJK fonts, to be checked by hand in W3.
+
 ## Public deployment plan
 
 **Host: GitHub Pages**, built and published by a GitHub Actions workflow from the public repo.
