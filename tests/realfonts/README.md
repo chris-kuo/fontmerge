@@ -2,7 +2,8 @@
 
 Tests marked `realfont` run against real fonts placed in this folder. They are skipped
 when a font is missing. Both fonts are under the SIL Open Font License, which allows
-redistribution.
+redistribution. The licence text is in [OFL.txt](OFL.txt); the fonts are not
+covered by the repository's MIT licence.
 
 | File | Role | Source | Licence |
 | --- | --- | --- | --- |

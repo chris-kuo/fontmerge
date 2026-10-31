@@ -99,3 +99,15 @@ mypy            # if mypy runs in its own env: mypy --python-executable "$(which
 Unit tests use tiny fonts generated in code (`tests/fontfactory.py`). Tests marked
 `realfont` also run on two real OFL fonts in `tests/realfonts/` (Literata Light,
 Iansui), including a full command-line merge.
+
+## Licence
+
+The fontmerge code and documentation are under the [MIT License](LICENSE).
+
+The test fonts in `tests/realfonts/` (Literata Light, Iansui) are under the
+[SIL Open Font License 1.1](tests/realfonts/OFL.txt), not MIT.
+
+Fonts you make with the tool are governed by the licences of the fonts you merge, not
+by this repository's licence. For OFL fonts this means the merged font is also OFL and
+must not use either source's Reserved Font Names; fontmerge writes both licence notices
+into the merged font and refuses reserved names.
