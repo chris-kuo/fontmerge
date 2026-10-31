@@ -116,6 +116,7 @@ def test_license_and_reserved_names(tmp_path: Path) -> None:
         ('with Reserved Font Names "Gentium" and "SIL".', ("Gentium", "SIL")),
         ('Reserved Font Name "Source". Other "quoted" text.', ("Source",)),
         ("Reserved Font Names “Noto” and “Han”.", ("Noto", "Han")),
+        ("with Reserved Font Name 'Averia' and 'Averia Libre'.", ("Averia", "Averia Libre")),
         ("No reserved names here.", ()),
         (None, ()),
     ],
@@ -188,17 +189,17 @@ def test_unknown_license_is_info(latin_ttf: Path) -> None:
 
 
 @pytest.mark.realfont
-def test_gentium_profile(gentium: Path) -> None:
-    p = _profile(gentium)
-    assert p.family_name == "Gentium Book Plus"
+def test_averia_profile(averia: Path) -> None:
+    p = _profile(averia)
+    assert p.family_name == "Averia Serif Libre"
     assert p.upm == 2048
     assert p.outline == "glyf"
-    assert p.x_height == 930 and p.cap_height == 1260
+    assert (p.x_height, p.cap_height) == (956, 1387)
     assert set(range(0x20, 0x7F)) <= p.codepoints  # all of printable ASCII
-    assert not any(0x4E00 <= cp <= 0x9FFF for cp in p.codepoints)
-    assert {"latn", "grek", "cyrl"} <= p.scripts
-    assert {"kern", "liga", "mark"} <= p.features
-    assert p.license.reserved_font_names == ("Gentium", "SIL")
+    assert set(range(0xA0, 0x100)) <= p.codepoints  # all of Latin-1
+    assert not any(0x370 <= cp <= 0x4FF for cp in p.codepoints)  # no Greek or Cyrillic
+    assert p.features == frozenset()  # kerning is in the legacy 'kern' table, not GPOS
+    assert p.license.reserved_font_names == ("Averia", "Averia Libre")
     assert not p.has_vertical_metrics
 
 
@@ -219,8 +220,8 @@ def test_iansui_profile(iansui: Path) -> None:
 
 
 @pytest.mark.realfont
-def test_real_fonts_fit_their_roles(gentium: Path, iansui: Path) -> None:
-    g = check_profile(_profile(gentium), Source.WESTERN)
+def test_real_fonts_fit_their_roles(averia: Path, iansui: Path) -> None:
+    g = check_profile(_profile(averia), Source.WESTERN)
     i = check_profile(_profile(iansui), Source.CJK)
     assert not [x for x in g + i if x.severity is not Severity.INFO]
     assert _codes(g) == ["license-reserved-names"]

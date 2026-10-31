@@ -250,7 +250,8 @@ def _base_ideographic(
 
 
 _RFN_SENTENCE = re.compile(r"Reserved\s+Font\s+Names?\b([^.\n]*)", re.IGNORECASE)
-_QUOTED = re.compile(r"[\"“]([^\"”]+)[\"”]")
+# Straight or curly quotes, double or single (written as escapes to keep the source ASCII).
+_QUOTED = re.compile("[\"\u201c]([^\"\u201d]+)[\"\u201d]|['\u2018]([^'\u2019]+)['\u2019]")
 
 
 def parse_reserved_font_names(*texts: str | None) -> tuple[str, ...]:
@@ -260,8 +261,8 @@ def parse_reserved_font_names(*texts: str | None) -> tuple[str, ...]:
         if not text:
             continue
         for sentence in _RFN_SENTENCE.findall(text):
-            for name in _QUOTED.findall(sentence):
-                name = name.strip()
+            for double, single in _QUOTED.findall(sentence):
+                name = (double or single).strip()
                 if name and name not in found:
                     found.append(name)
     return tuple(found)

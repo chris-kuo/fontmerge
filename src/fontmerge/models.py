@@ -88,7 +88,13 @@ class RangeOverride(_Frozen):
 class RoutingConfig(_Frozen):
     include_hangul: bool = False
     punctuation: PunctuationPolicy = PunctuationPolicy.SPLIT
+    symbols: Source = Source.CJK
+    """Which font supplies box drawing, arrows, geometric shapes and similar symbols."""
+    fallback: bool = True
+    """When the preferred font lacks a character, take it from the other font."""
     overrides: tuple[RangeOverride, ...] = ()
+    """Force ranges to a font. Later overrides win. A forced font that lacks a
+    character is ignored for that character, and the normal rules apply."""
 
 
 class NormalizeConfig(_Frozen):
@@ -254,6 +260,9 @@ class AssignmentPlan:
     western: frozenset[int]
     cjk: frozenset[int]
     missing: frozenset[int] = frozenset()
+    """Covered by an input font but not assigned (only when fallback is off)."""
+    excluded: frozenset[int] = frozenset()
+    """Left out on purpose by the config (e.g. Hangul when ``include_hangul`` is off)."""
     decisions: tuple[RouteDecision, ...] = ()
 
     def __post_init__(self) -> None:
@@ -261,8 +270,17 @@ class AssignmentPlan:
         if overlap:
             sample = ", ".join(f"U+{cp:04X}" for cp in sorted(overlap)[:5])
             raise ValueError(f"codepoints assigned to both fonts: {sample}")
-        if self.missing & (self.western | self.cjk):
+        assigned = self.western | self.cjk
+        if self.missing & assigned:
             raise ValueError("a codepoint cannot be both assigned and missing")
+        if self.excluded & (assigned | self.missing):
+            raise ValueError("an excluded codepoint cannot be assigned or missing")
+
+    def decision_for(self, codepoint: int) -> RouteDecision | None:
+        for d in self.decisions:
+            if d.codepoint == codepoint:
+                return d
+        return None
 
     def source_of(self, codepoint: int) -> Source | None:
         if codepoint in self.western:

@@ -14,8 +14,8 @@ ruff check . && ruff format --check .
 mypy            # if mypy runs in its own env: mypy --python-executable "$(which python)"
 ```
 
-Tests use tiny fonts generated in code (`tests/fontfactory.py`), so no font files are
-checked in.
+Unit tests use tiny fonts generated in code (`tests/fontfactory.py`). Tests marked
+`realfont` also run on two real OFL fonts in `tests/realfonts/`.
 
 ## Layout
 
@@ -25,10 +25,12 @@ src/fontmerge/
   errors.py     error types, each with a user-facing hint
   loader.py     open TTF/OTF/WOFF/TTC, pick a collection face, reject variable fonts
   inspector.py  read a FontProfile (UPM, coverage, metrics, em box, licence) + role checks
+  unicode_ranges.py  Unicode blocks -> routing categories
+  router.py     decide which font supplies each codepoint (AssignmentPlan)
 tests/
   fontfactory.py   builds test fonts (Latin TTF, CJK OTF, TTC, variable)
   conftest.py      pytest fixtures for those fonts
-  realfonts/       real fonts for tests marked `realfont` (not committed; see its README)
+  realfonts/       real fonts for tests marked `realfont` (Averia Serif Libre, Iansui)
 ```
 
 ## Stages
@@ -37,7 +39,7 @@ tests/
 | --- | --- | --- |
 | 0 | Scaffold, models, errors, test fonts | Done |
 | 1 | Loader, Inspector | Done |
-| 2 | Script Router | |
+| 2 | Script Router | Done |
 | 3 | Subsetter | |
 | 4 | Normalizer | |
 | 5 | Merger, Metadata | |

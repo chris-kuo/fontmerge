@@ -108,9 +108,9 @@ def test_variable_font_allowed_on_request(variable_ttf: Path) -> None:
 
 
 @pytest.mark.realfont
-def test_real_fonts_load(gentium: Path, iansui: Path) -> None:
-    g = load_font(gentium)
+def test_real_fonts_load(averia: Path, iansui: Path) -> None:
+    g = load_font(averia)
     i = load_font(iansui)
     assert (g.outline, i.outline) == ("glyf", "glyf")
-    assert g.face is not None and g.face.family == "Gentium Book Plus"
+    assert g.face is not None and g.face.family == "Averia Serif Libre"
     assert i.face is not None and i.face.family == "Iansui"
