@@ -149,6 +149,24 @@ pass. Browser merge for Literata Light + Iansui: 53.3 s (native 29.8 s), 322 MB.
 
 Still open: checking large merges on a phone, which needs the public site (W4).
 
+## W4 results (Oct 31, 2026)
+
+The site is live at <https://chris-kuo.github.io/fontmerge/>.
+
+| Item | Result |
+| --- | --- |
+| Deploy | Job in `ci.yml`; runs only on `main` after the Python and browser tests pass (pushes and manual runs) |
+| Live smoke test | Waits until the live `build.json` shows the new commit, then runs the 5 `smoke` browser tests against the live site: 5 passed |
+| Browser engines | Live site tested in Chromium, Firefox and WebKit (Safari's engine): 5 of 5 passed in each |
+| Weekly check | `live-check.yml`, Mondays 06:17 UTC and on demand, all three engines |
+| Cache busting | Content hash added as `?v=` to the page's scripts and stylesheet; the wheel is stored under `wheels/<hash>/` |
+| Page | Favicon, GitHub link in the footer; README has the live link and CI badge |
+
+Note: re-running only the failed deploy job reuses the old upload and fails ("Multiple
+artifacts named github-pages"); start a new run instead (Actions → CI → Run workflow).
+
+Still open: a large merge on a phone, and a manual check in desktop Safari and Firefox.
+
 ## Public deployment plan
 
 **Host: GitHub Pages**, built and published by a GitHub Actions workflow from the public repo.
